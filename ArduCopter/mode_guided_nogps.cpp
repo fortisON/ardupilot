@@ -71,18 +71,29 @@ void ModeGuidedNoGPS::run()
     while (error > M_PI) error -= 2.0f * M_PI;
     while (error < -M_PI) error += 2.0f * M_PI;
 
-    // Smoothing factor (the smaller, the slower and smoother the rotation)
-    float smoothing_factor = 0.05f;
+    // Threshold error for starting forward movement (eg 10 degrees)
+    float yaw_threshold = radians(10.0f);
+
+    // Quick turn: increase smoothing_factor
+    // The higher the error, the higher the factor
+    float base_factor = 0.2f; // base factor higher than 0.1f for faster rotation
+    // You can make factor dependent on the error:
+    // for example, factor grows from base_factor to base_factor*2 for large errors
+    float factor_multiplier = 1.0f + std::min(fabsf(error) / M_PI, 1.0f);
+    float smoothing_factor = base_factor * factor_multiplier;
+
     float new_yaw = current_yaw + error * smoothing_factor;
 
-    // Set the angles. Here pitch will tilt the drone forward/backward,
-    // do not change roll (in this example 0), and bring yaw closer to home_yaw.
-    //
-    // If you need to take roll/pitch into account for lateral or longitudinal displacement,
-    // add the appropriate calculations based on the desired direction of movement.
-    //
-    // For now, for the example, only smooth yaw, and a small pitch for forward flight:
-    q.from_euler(radians(0.0f), -radians(fly_angle), new_yaw);
+    float pitch_angle = 0.0f;
+
+    // If the error in yaw is greater than the threshold, we simply turn on the spot, without leaning forward.
+    if (fabsf(error) < yaw_threshold) {
+        pitch_angle = -radians(fly_angle);
+    }
+
+    float roll_angle = 0.0f;
+
+    q.from_euler(roll_angle, pitch_angle, new_yaw);
 
     // Set target angles and vertical speed
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);
