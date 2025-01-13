@@ -1,6 +1,9 @@
 #include "Copter.h"
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+
+using namespace std;
 
 #if MODE_GUIDED_NOGPS_ENABLED
 
@@ -14,6 +17,10 @@ float ModeGuidedNoGPS::normalize_radians(float radians) {
 
 float ModeGuidedNoGPS::degrees_to_radians(float degrees) {
     return degrees * M_PI / 180.0f;
+}
+
+float ModeGuidedNoGPS::radians_to_degrees(float radians) {
+    return radians * 180.0f / M_PI;
 }
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
@@ -57,45 +64,24 @@ void ModeGuidedNoGPS::run()
 
     // Calculate the target altitude above the vehicle
     float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
-
     float climb_rate_chg_max = interval_ms * 0.001f * (wp_nav->get_accel_z() * 0.01f);
+    
+    climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, climb_rate + climb_rate_chg_max));
 
-    climb_rate = std::min(target_alt_above_vehicle * 0.1f,
-                          std::min(wp_nav->get_default_speed_up() * 0.01f, climb_rate + climb_rate_chg_max));
+    // Calculate body to home azimuth
+    float body_azimuth = radians_to_degrees(AP::ahrs().get_yaw());
+    float home_azimuth = radians_to_degrees(home_yaw);
+    float body_to_home_azimuth = home_azimuth - body_azimuth;
 
-    // Get the current yaw
-    float current_yaw = AP::ahrs().get_yaw();
+    float body_to_home_azimuth_rad = degrees_to_radians(body_to_home_azimuth);
 
-    // Calculate the difference between the desired (home_yaw) and the current yaw
-    float error = home_yaw - current_yaw;
-    while (error > M_PI) error -= 2.0f * M_PI;
-    while (error < -M_PI) error += 2.0f * M_PI;
+    // Create vector for body to home azimuth needed to apply correct body angle
+    Vector2f home_vector = Vector2f(sin(body_to_home_azimuth_rad), cos(body_to_home_azimuth_rad));
 
-    // Threshold error for starting forward movement (eg 10 degrees)
-    float yaw_threshold = radians(10.0f);
+    // Create quaternion from 
+    q.from_euler(radians(fly_angle * home_vector.x), -radians(fly_angle * home_vector.y), AP::ahrs().get_yaw());
 
-    // Quick turn: increase smoothing_factor
-    // The higher the error, the higher the factor
-    float base_factor = 0.2f; // base factor higher than 0.1f for faster rotation
-    // You can make factor dependent on the error:
-    // for example, factor grows from base_factor to base_factor*2 for large errors
-    float factor_multiplier = 1.0f + std::min(fabsf(error) / M_PI, 1.0f);
-    float smoothing_factor = base_factor * factor_multiplier;
-
-    float new_yaw = current_yaw + error * smoothing_factor;
-
-    float pitch_angle = 0.0f;
-
-    // If the error in yaw is greater than the threshold, we simply turn on the spot, without leaning forward.
-    if (fabsf(error) < yaw_threshold) {
-        pitch_angle = -radians(fly_angle);
-    }
-
-    float roll_angle = 0.0f;
-
-    q.from_euler(roll_angle, pitch_angle, new_yaw);
-
-    // Set target angles and vertical speed
+    // Set angle for moving to home azimuth
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);
 }
 
