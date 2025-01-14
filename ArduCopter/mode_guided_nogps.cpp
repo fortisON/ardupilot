@@ -55,6 +55,12 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
+    if (!copter.failsafe.radio && false) {
+        copter.set_mode(AP::gps().num_sats() > 12 && AP::gps().get_hdop() < 60 ? Mode::Number::LOITER : Mode::Number::ALT_HOLD, ModeReason::RADIO_FAILSAFE_RECOVERY);
+    } else if (AP::gps().num_sats() > 9 && AP::gps().get_hdop() < 60) {
+        copter.set_mode(Mode::Number::RTL, ModeReason::RADIO_FAILSAFE_RECOVERY);
+    }
+
     // Run the angle control logic
     ModeGuided::angle_control_run();
 
