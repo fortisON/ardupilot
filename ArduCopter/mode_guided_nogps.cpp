@@ -1,7 +1,6 @@
 #include "Copter.h"
 #include <cmath>
 #include <algorithm>
-#include <iostream>
 
 using namespace std;
 
@@ -11,16 +10,8 @@ using namespace std;
  * Initialization and run calls for the guided_nogps flight mode
  */
 
-float ModeGuidedNoGPS::normalize_radians(float radians) {
-    return std::fmod(radians + M_PI, 2.0f * M_PI) - M_PI;
-}
-
 float ModeGuidedNoGPS::degrees_to_radians(float degrees) {
     return degrees * M_PI / 180.0f;
-}
-
-float ModeGuidedNoGPS::radians_to_degrees(float radians) {
-    return radians * 180.0f / M_PI;
 }
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
@@ -41,7 +32,6 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     fly_alt_min = g.rtl_altitude / 100.0f;       // minimum height above the home
     home_yaw = g.dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(g.dr_home_yaw);
     home_yaw = degrees_to_radians(normalize_angle_deg(home_yaw)); // convert home_yaw to radians
-    timeout = g2.failsafe_dr_timeout;
 
     // Initial value of climb_rate
     climb_rate = 0.0f;
