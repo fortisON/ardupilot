@@ -85,6 +85,19 @@ void Copter::failsafe_radio_off_event()
     // user can now override roll, pitch, yaw and throttle and even use flight mode switch to restore previous flight mode
     LOGGER_WRITE_ERROR(LogErrorSubsystem::FAILSAFE_RADIO, LogErrorCode::FAILSAFE_RESOLVED);
     gcs().send_text(MAV_SEVERITY_WARNING, "Radio Failsafe Cleared");
+
+    switch (flightmode->mode_number()) {
+        case Mode::Number::GUIDED_NOGPS:
+            set_mode(Mode::Number::ALT_HOLD, ModeReason::RADIO_FAILSAFE_RECOVERY);
+            break;
+
+        case Mode::Number::RTL:
+            set_mode(Mode::Number::LOITER, ModeReason::RADIO_FAILSAFE_RECOVERY);
+            break;
+
+        default:
+            break;
+    }
 }
 
 void Copter::announce_failsafe(const char *type, const char *action_undertaken)

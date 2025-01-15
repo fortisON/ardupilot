@@ -189,8 +189,10 @@ void Copter::failsafe_ekf_event()
     // take action based on fs_ekf_action parameter
     switch (g.fs_ekf_action) {
         case FS_EKF_ACTION_ALTHOLD:
-            // AltHold
-            if (failsafe.radio || !set_mode(Mode::Number::ALT_HOLD, ModeReason::EKF_FAILSAFE)) {
+            // switch to GUIDED_NOGPS if failsafe radio otherwise switch to ALT_HOLD
+            if (failsafe.radio) {
+                set_mode_guided_nogps(ModeReason::EKF_FAILSAFE);
+            } else if (!set_mode(Mode::Number::ALT_HOLD, ModeReason::EKF_FAILSAFE)) {
                 set_mode_land_with_pause(ModeReason::EKF_FAILSAFE);
             }
             break;
@@ -220,6 +222,14 @@ void Copter::failsafe_ekf_off_event(void)
         gcs().send_text(MAV_SEVERITY_CRITICAL, "EKF Failsafe Cleared");
     }
     LOGGER_WRITE_ERROR(LogErrorSubsystem::FAILSAFE_EKFINAV, LogErrorCode::FAILSAFE_RESOLVED);
+
+    if (gps.num_sats() > 20) {
+        if (failsafe.radio) {
+            set_mode(Mode::Number::RTL, ModeReason::EKF_FAILSAFE_RECOVERY);
+        } else {
+            set_mode(Mode::Number::LOITER, ModeReason::EKF_FAILSAFE_RECOVERY);
+        }
+    }
 }
 
 // re-check if the flight mode requires GPS but EKF failsafe is active
