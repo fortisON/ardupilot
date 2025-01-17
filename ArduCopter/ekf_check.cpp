@@ -223,12 +223,8 @@ void Copter::failsafe_ekf_off_event(void)
     }
     LOGGER_WRITE_ERROR(LogErrorSubsystem::FAILSAFE_EKFINAV, LogErrorCode::FAILSAFE_RESOLVED);
 
-    if (gps.num_sats() > 20) {
-        if (failsafe.radio) {
-            set_mode(Mode::Number::RTL, ModeReason::EKF_FAILSAFE_RECOVERY);
-        } else {
-            set_mode(Mode::Number::LOITER, ModeReason::EKF_FAILSAFE_RECOVERY);
-        }
+    if (failsafe.radio && gps.num_sats() > 20 && gps.get_hdop() < 60) {
+        set_mode(Mode::Number::RTL, ModeReason::EKF_FAILSAFE_RECOVERY);
     }
 }
 
