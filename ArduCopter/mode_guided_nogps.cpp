@@ -59,13 +59,15 @@ void ModeGuidedNoGPS::run()
     climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, climb_rate + climb_rate_chg_max));
 
     // Calculate body to home azimuth
-    float body_to_home_azimuth_rad = home_yaw - AP::ahrs().get_yaw();
+    float current_yaw = AP::ahrs().get_yaw();
+    float target_yaw = current_yaw + get_pilot_desired_yaw_rate() * 0.00005f;
+    float body_to_home_azimuth_rad = home_yaw - target_yaw;
 
     // Create vector for body to home azimuth needed to apply correct body angle
     Vector2f home_vector = Vector2f(sin(body_to_home_azimuth_rad), cos(body_to_home_azimuth_rad));
 
     // Create quaternion for movement
-    q.from_euler(radians(fly_angle * home_vector.x), -radians(fly_angle * home_vector.y), AP::ahrs().get_yaw());
+    q.from_euler(radians(fly_angle * home_vector.x), -radians(fly_angle * home_vector.y), target_yaw);
 
     // Start movement
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);
