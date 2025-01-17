@@ -186,7 +186,7 @@ public:
     virtual void output_to_motors();
 
     // returns true if pilot's yaw input should be used to adjust vehicle's heading
-    virtual bool use_pilot_yaw() const {return true; }
+    virtual bool use_pilot_yaw() const { return true; }
 
     // pause and resume a mode
     virtual bool pause() { return false; };
