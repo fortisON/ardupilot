@@ -64,10 +64,16 @@ void ModeGuidedNoGPS::run()
     float body_to_home_azimuth_rad = home_yaw - target_yaw;
 
     // Create vector for body to home azimuth needed to apply correct body angle
-    Vector2f home_vector = Vector2f(sin(body_to_home_azimuth_rad), cos(body_to_home_azimuth_rad));
+    Vector2f target_vector = Vector2f(sin(body_to_home_azimuth_rad), cos(body_to_home_azimuth_rad));
+
+    #if AP_OPTICALFLOW_ENABLED
+        // Recalculate target vector
+        Vector2f diff_vector = Vector2f(copter.optflow.flowRate().x - target_vector.x, copter.optflow.flowRate().y - target_vector.y);
+        target_vector = Vector2f(target_vector.x - diff_vector.x, target_vector.y - diff_vector.y);
+    #endif
 
     // Create quaternion for movement
-    q.from_euler(radians(fly_angle * home_vector.x), -radians(fly_angle * home_vector.y), target_yaw);
+    q.from_euler(radians(fly_angle * target_vector.x), -radians(fly_angle * target_vector.y), target_yaw);
 
     // Start movement
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);
