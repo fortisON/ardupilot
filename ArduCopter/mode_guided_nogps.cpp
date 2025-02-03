@@ -60,7 +60,7 @@ void ModeGuidedNoGPS::run()
 
     // Calculate body to home azimuth
     float current_yaw = AP::ahrs().get_yaw();
-    float target_yaw = current_yaw + get_pilot_desired_yaw_rate() * 0.00005f;
+    float target_yaw = current_yaw + get_pilot_desired_yaw_rate() * 0.000025f;
     float body_to_home_azimuth_rad = home_yaw - target_yaw;
 
     // Create vector for body to home azimuth needed to apply correct body angle
@@ -72,8 +72,18 @@ void ModeGuidedNoGPS::run()
         target_vector = Vector2f(target_vector.x - diff_vector.x, target_vector.y - diff_vector.y);
     #endif
 
+    Vector2f target_fly_angle = Vector2f(fly_angle * target_vector.x, fly_angle * target_vector.y);
+
+    if (target_fly_angle.x > fly_angle) {
+        target_fly_angle.x = fly_angle;
+    }
+
+    if (target_fly_angle.y > fly_angle) {
+        target_fly_angle.y = fly_angle;
+    }
+
     // Create quaternion for movement
-    q.from_euler(radians(fly_angle * target_vector.x), -radians(fly_angle * target_vector.y), target_yaw);
+    q.from_euler(radians(target_fly_angle.x), -radians(target_fly_angle.y), target_yaw);
 
     // Start movement
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);
