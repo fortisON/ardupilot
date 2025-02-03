@@ -60,11 +60,11 @@ void ModeGuidedNoGPS::run()
 
     // Calculate body to home azimuth
     float current_yaw = AP::ahrs().get_yaw();
-    float target_yaw = current_yaw + get_pilot_desired_yaw_rate() * 0.000025f;
+    float target_yaw = current_yaw + get_pilot_desired_yaw_rate() * 0.00003f;
     float body_to_home_azimuth_rad = home_yaw - target_yaw;
 
     // Create vector for body to home azimuth needed to apply correct body angle
-    Vector2f target_vector = Vector2f(sin(body_to_home_azimuth_rad), cos(body_to_home_azimuth_rad));
+    Vector2f target_vector = Vector2f(sinf(body_to_home_azimuth_rad), cosf(body_to_home_azimuth_rad));
 
     #if AP_OPTICALFLOW_ENABLED
         // Recalculate target vector
@@ -72,6 +72,7 @@ void ModeGuidedNoGPS::run()
         target_vector = Vector2f(target_vector.x - diff_vector.x, target_vector.y - diff_vector.y);
     #endif
 
+    // Calculate and normalize flight angles
     Vector2f target_fly_angle = Vector2f(fly_angle * target_vector.x, fly_angle * target_vector.y);
 
     if (target_fly_angle.x > fly_angle) {
