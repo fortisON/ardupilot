@@ -15,7 +15,14 @@ float ModeGuidedNoGPS::degrees_to_radians(float degrees) {
 }
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
-    return std::fmod(std::fmod(angle, 360.0f) + 360.0f, 360.0f);
+    return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
+}
+
+void ModeGuidedNoGPS::normalize_vector(Vector2f& vector) {
+    float length = sqrtf(vector.x * vector.x + vector.y * vector.y);
+
+    vector.x = vector.x / length;
+    vector.y = vector.y / length;
 }
 
 // Initialize the guided_nogps controller
@@ -86,11 +93,10 @@ void ModeGuidedNoGPS::run()
     }
 #endif
 
-    // Calculate and normalize flight angles
-    Vector2f target_fly_angle = Vector2f();
+    normalize_vector(target_vector);
 
-    target_fly_angle.x = constrain_float(fly_angle * target_vector.x, -fly_angle, fly_angle);
-    target_fly_angle.y = constrain_float(fly_angle * target_vector.y, -fly_angle, fly_angle);
+    // Calculate and normalize flight angles
+    Vector2f target_fly_angle = Vector2f(fly_angle * target_vector.x, fly_angle * target_vector.y);
 
     // Create quaternion for movement
     q.from_euler(radians(target_fly_angle.x), -radians(target_fly_angle.y), target_yaw);
