@@ -1239,6 +1239,7 @@ public:
     float fly_alt_min = 50.0f;
     float climb_rate = 0.0f;
     float home_yaw = 0.0f;
+    float quality_filtered = 0.0f;
 
     float degrees_to_radians(float degrees);
     float normalize_angle_deg(float angle);

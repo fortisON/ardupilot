@@ -36,6 +36,9 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     // Initial value of climb_rate
     climb_rate = 0.0f;
 
+    // Initial flow quality
+    quality_filtered = 0;
+
     // Information message
     gcs().send_text(MAV_SEVERITY_INFO, "DR Start");
 
@@ -66,22 +69,28 @@ void ModeGuidedNoGPS::run()
     // Create vector for body to home azimuth needed to apply correct body angle
     Vector2f target_vector = Vector2f(sinf(body_to_home_azimuth_rad), cosf(body_to_home_azimuth_rad));
 
-    #if AP_OPTICALFLOW_ENABLED
-        // Recalculate target vector
-        Vector2f diff_vector = Vector2f(copter.optflow.flowRate().x - target_vector.x, copter.optflow.flowRate().y - target_vector.y);
-        target_vector = Vector2f(target_vector.x - diff_vector.x, target_vector.y - diff_vector.y);
-    #endif
+#if AP_OPTICALFLOW_ENABLED
+    if (copter.optflow.healthy()) {
+        const float filter_constant = 0.95;
+        quality_filtered = filter_constant * quality_filtered + (1-filter_constant) * copter.optflow.quality();
+
+        if (quality_filtered >= 10) {
+            // Recalculate target vector
+            Vector2f diff_vector = copter.optflow.flowRate() - target_vector;
+            
+            target_vector.x = target_vector.x - diff_vector.x;
+            target_vector.y = target_vector.y - diff_vector.y;
+        }
+    } else {
+        quality_filtered = 0;
+    }
+#endif
 
     // Calculate and normalize flight angles
-    Vector2f target_fly_angle = Vector2f(fly_angle * target_vector.x, fly_angle * target_vector.y);
+    Vector2f target_fly_angle = Vector2f();
 
-    if (target_fly_angle.x > fly_angle) {
-        target_fly_angle.x = fly_angle;
-    }
-
-    if (target_fly_angle.y > fly_angle) {
-        target_fly_angle.y = fly_angle;
-    }
+    target_fly_angle.x = constrain_float(fly_angle * target_vector.x, -fly_angle, fly_angle);
+    target_fly_angle.y = constrain_float(fly_angle * target_vector.y, -fly_angle, fly_angle);
 
     // Create quaternion for movement
     q.from_euler(radians(target_fly_angle.x), -radians(target_fly_angle.y), target_yaw);
