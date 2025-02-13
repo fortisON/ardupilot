@@ -32,8 +32,8 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     ModeGuided::angle_control_start();
 
     // Set parameters
-    fly_angle = copter.aparm.angle_max / 100.0f; // maximum tilt angle in radians (angle_max in hundredths of a degree)
-    interval_ms = 100.0f;                        // update interval in milliseconds
+    fly_angle = copter.aparm.angle_max / 100.0f;    // maximum tilt angle in radians (angle_max in hundredths of a degree)
+    interval_ms = 100.0f;                           // update interval in milliseconds
 
     // Minimum height and yaw
     fly_alt_min = g.rtl_altitude / 100.0f;       // minimum height above the home
@@ -74,7 +74,10 @@ void ModeGuidedNoGPS::run()
     float body_to_home_azimuth_rad = home_yaw - target_yaw;
 
     // Create vector for body to home azimuth needed to apply correct body angle
-    Vector2f target_vector = Vector2f(sinf(body_to_home_azimuth_rad), cosf(body_to_home_azimuth_rad));
+    Vector2f target_vector = Vector2f(
+        sinf(body_to_home_azimuth_rad) * g.gngp_home_vector_multiplier,
+        cosf(body_to_home_azimuth_rad) * g.gngp_home_vector_multiplier
+    );
 
 #if AP_OPTICALFLOW_ENABLED
     if (copter.optflow.healthy()) {
@@ -82,8 +85,7 @@ void ModeGuidedNoGPS::run()
         quality_filtered = filter_constant * quality_filtered + (1-filter_constant) * copter.optflow.quality();
 
         if (quality_filtered >= 10) {
-            // Recalculate target vector
-            Vector2f diff_vector = copter.optflow.flowRate() - target_vector;
+            Vector2f diff_vector = (copter.optflow.flowRate() - target_vector) * g.gngp_optflow_multiplier;
             
             target_vector.x = target_vector.x - diff_vector.x;
             target_vector.y = target_vector.y - diff_vector.y;
@@ -95,11 +97,14 @@ void ModeGuidedNoGPS::run()
 
     normalize_vector(target_vector);
 
-    // Calculate and normalize flight angles
-    Vector2f target_fly_angle = Vector2f(fly_angle * target_vector.x, fly_angle * target_vector.y);
+    target_vector *= g.gngp_speed_multiplier;
 
     // Create quaternion for movement
-    q.from_euler(radians(target_fly_angle.x), -radians(target_fly_angle.y), target_yaw);
+    q.from_euler(
+        radians(fly_angle * target_vector.x),
+        -radians(fly_angle * target_vector.y),
+        target_yaw
+    );
 
     // Start movement
     ModeGuided::set_angle(q, Vector3f{}, climb_rate * 100.0f, false);

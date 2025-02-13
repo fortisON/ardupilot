@@ -1258,7 +1258,7 @@ protected:
     const char *name4() const override { return "GNGP"; }
 
 private:
-
+    
 };
 
 class ModeLand : public Mode {
