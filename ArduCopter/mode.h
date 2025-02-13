@@ -1243,6 +1243,7 @@ public:
 
     float degrees_to_radians(float degrees);
     float normalize_angle_deg(float angle);
+    float get_vector_mag(Vector2f& vector);
     void normalize_vector(Vector2f& vector);
 
     bool init(bool ignore_checks) override;

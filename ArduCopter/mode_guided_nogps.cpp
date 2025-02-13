@@ -18,11 +18,15 @@ float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
 }
 
-void ModeGuidedNoGPS::normalize_vector(Vector2f& vector) {
-    float length = sqrtf(vector.x * vector.x + vector.y * vector.y);
+float ModeGuidedNoGPS::get_vector_mag(Vector2f& vector) {
+    return sqrtf(vector.x * vector.x + vector.y * vector.y);
+}
 
-    vector.x = vector.x / length;
-    vector.y = vector.y / length;
+void ModeGuidedNoGPS::normalize_vector(Vector2f& vector) {
+    float mag = get_vector_mag(vector);
+
+    vector.x = vector.x / mag;
+    vector.y = vector.y / mag;
 }
 
 // Initialize the guided_nogps controller
@@ -85,10 +89,10 @@ void ModeGuidedNoGPS::run()
         quality_filtered = filter_constant * quality_filtered + (1-filter_constant) * copter.optflow.quality();
 
         if (quality_filtered >= 10) {
-            Vector2f diff_vector = (copter.optflow.flowRate() - target_vector) * g.gngp_optflow_multiplier;
-            
-            target_vector.x = target_vector.x - diff_vector.x;
-            target_vector.y = target_vector.y - diff_vector.y;
+            Vector2f flow_vector = copter.optflow.flowRate();
+            Vector2f home_vector_scaled = flow_vector * get_vector_mag(flow_vector);
+
+            target_vector = (home_vector_scaled - flow_vector) * g.gngp_optflow_multiplier;
         }
     } else {
         quality_filtered = 0;
