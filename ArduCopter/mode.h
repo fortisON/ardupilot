@@ -1239,12 +1239,27 @@ public:
     float fly_alt_min = 50.0f;
     float climb_rate = 0.0f;
     float home_yaw = 0.0f;
+
+    // minimum assumed height
+    const float height_min = 0.1f;
+
+    // maximum scaling height
+    const float height_max = 50.0f;
+
+    LowPassFilterConstDtVector2f flow_filter;
+
+    AP_Float flow_max;
+    AC_PI_2D flow_pi_xy{0.2f, 0.3f, 3000, 5, 0.0025f};
+    AP_Float flow_filter_hz;
+    AP_Int8  flow_min_quality;
+
     float quality_filtered = 0.0f;
+
+    float last_ins_height;
+    float height_offset;
 
     float degrees_to_radians(float degrees);
     float normalize_angle_deg(float angle);
-    float get_vector_mag(Vector2f& vector);
-    void normalize_vector(Vector2f& vector);
 
     bool init(bool ignore_checks) override;
     void run() override;
@@ -1252,6 +1267,8 @@ public:
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
     bool is_autopilot() const override { return true; }
+
+    static const struct AP_Param::GroupInfo var_info[];
 
 protected:
 
