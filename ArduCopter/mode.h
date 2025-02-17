@@ -1228,38 +1228,8 @@ private:
 class ModeGuidedNoGPS : public ModeGuided {
 
 public:
-    // inherit constructor
-    using ModeGuided::Mode;
+    ModeGuidedNoGPS(void);
     Number mode_number() const override { return Number::GUIDED_NOGPS; }
-
-    ModeGuided mode_guided;
-    Quaternion q;
-    float fly_angle = 0.0f;
-    float interval_ms = 0.0f;
-    float fly_alt_min = 50.0f;
-    float climb_rate = 0.0f;
-    float home_yaw = 0.0f;
-
-    // minimum assumed height
-    const float height_min = 0.1f;
-
-    // maximum scaling height
-    const float height_max = 50.0f;
-
-    LowPassFilterConstDtVector2f flow_filter;
-
-    AP_Float flow_max;
-    AC_PI_2D flow_pi_xy{0.2f, 0.3f, 3000, 5, 0.0025f};
-    AP_Float flow_filter_hz;
-    AP_Int8  flow_min_quality;
-
-    float quality_filtered = 0.0f;
-
-    float last_ins_height;
-    float height_offset;
-
-    float degrees_to_radians(float degrees);
-    float normalize_angle_deg(float angle);
 
     bool init(bool ignore_checks) override;
     void run() override;
@@ -1276,7 +1246,30 @@ protected:
     const char *name4() const override { return "GNGP"; }
 
 private:
-    
+
+    float normalize_angle_deg(float angle);
+
+    LowPassFilterConstDtVector2f flow_filter;
+
+    float fly_angle = 0.0f;
+    float interval_ms = 100.0f;
+    float fly_alt_min = 50.0f;
+    float climb_rate = 0.0f;
+    float home_yaw = 0.0f;
+
+    float quality_filtered = 0.0f;
+
+    // minimum assumed height
+    const float height_min = 0.1f;
+
+    // maximum scaling height
+    const float height_max = 200.0f;
+
+    AP_Float flow_max;
+    AC_PI_2D flow_pi_xy{0.2f, 0.8f, 3000, 5, 0.0025f};
+    AP_Float flow_filter_hz;
+    AP_Int8  flow_min_quality;
+
 };
 
 class ModeLand : public Mode {

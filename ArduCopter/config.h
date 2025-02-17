@@ -426,19 +426,6 @@
  # define RTL_LOITER_TIME           5000    // Time (in milliseconds) to loiter above home before beginning final descent
 #endif
 
-// GNGP Mode
-#ifndef GNGP_HOME_VEC_MULT
-  # define GNGP_HOME_VEC_MULT       1.0f
-#endif
-
-#ifndef GNGP_OPTFLOW_MULT
-  # define GNGP_OPTFLOW_MULT        1.0f
-#endif
-
-#ifndef GNGP_SPD_MULT
-  # define GNGP_SPD_MULT            0.5f
-#endif
-
 // AUTO Mode
 #ifndef WP_YAW_BEHAVIOR_DEFAULT
  # define WP_YAW_BEHAVIOR_DEFAULT   WP_YAW_BEHAVIOR_LOOK_AT_NEXT_WP_EXCEPT_RTL

@@ -165,33 +165,6 @@ const AP_Param::Info Copter::var_info[] = {
     GSCALAR(rtl_alt_type, "RTL_ALT_TYPE", 0),
 #endif
 
-#if MODE_GUIDED_NOGPS_ENABLED
-    // @Param: GNGP_HOME_VEC_MULT
-    // @DisplayName: GNGP home vector multiplier
-    // @Description:
-    // @Units: cm
-    // @Range: 0 1.0
-    // @Increment: .05
-    // @User: Standard
-    GSCALAR(gngp_home_vector_multiplier,   "GNGP_HOME_VEC_MULT",     GNGP_HOME_VEC_MULT),
-
-    // @Param: GNGP_OPTFLOW_MULT
-    // @DisplayName: GNGP optical flow multiplier
-    // @Description:
-    // @Range: 0 1.0
-    // @Increment: .05
-    // @User: Standard
-    GSCALAR(gngp_optflow_multiplier,   "GNGP_OPTFLOW_MULT",     GNGP_OPTFLOW_MULT),
-
-    // @Param: GNGP_SPD_MULT
-    // @DisplayName: GNGP speed multiplier
-    // @Description:
-    // @Range: 0 1.0
-    // @Increment: .05
-    // @User: Standard
-    GSCALAR(gngp_speed_multiplier,   "GNGP_SPD_MULT",     GNGP_SPD_MULT),
-#endif
-
     // @Param: FS_GCS_ENABLE
     // @DisplayName: Ground Station Failsafe Enable
     // @Description: Controls whether failsafe will be invoked (and what action to take) when connection with Ground station is lost for at least 5 seconds. See FS_OPTIONS param for additional actions, or for cases allowing Mission continuation, when GCS failsafe is enabled.
@@ -921,6 +894,12 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     AP_SUBGROUPPTR(mode_flowhold_ptr, "FHLD", 26, ParametersG2, ModeFlowHold),
 #endif
 
+#if MODE_GUIDED_NOGPS_ENABLED
+    // @Group: GNGP
+    // @Path: mode_guided_nogps.cpp
+    AP_SUBGROUPPTR(mode_guided_nogps_ptr, "GNGP", 60, ParametersG2, ModeGuidedNoGPS),
+#endif
+
 #if MODE_FOLLOW_ENABLED
     // @Group: FOLL
     // @Path: ../libraries/AP_Follow/AP_Follow.cpp
@@ -1316,6 +1295,9 @@ ParametersG2::ParametersG2(void) :
 #endif
 #if MODE_FLOWHOLD_ENABLED
     ,mode_flowhold_ptr(&copter.mode_flowhold)
+#endif
+#if MODE_GUIDED_NOGPS_ENABLED
+    ,mode_guided_nogps_ptr(&copter.mode_guided_nogps)
 #endif
 #if MODE_FOLLOW_ENABLED
     ,follow()

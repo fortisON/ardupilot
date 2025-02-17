@@ -385,11 +385,6 @@ public:
         k_param_throw_altitude_min,
         k_param_throw_altitude_max,
 
-        // 270: GNGP
-        k_param_gngp_home_vector_multiplier = 270,
-        k_param_gngp_optflow_multiplier,
-        k_param_gngp_speed_multiplier,
-
         // the k_param_* space is 9-bits in size
         // 511: reserved
     };
@@ -428,12 +423,6 @@ public:
 #if MODE_POSHOLD_ENABLED
     AP_Int16        poshold_brake_rate;         // PosHold flight mode's rotation rate during braking in deg/sec
     AP_Int16        poshold_brake_angle_max;    // PosHold flight mode's max lean angle during braking in centi-degrees
-#endif
-
-#if MODE_GUIDED_NOGPS_ENABLED
-    AP_Float        gngp_home_vector_multiplier;
-    AP_Float        gngp_optflow_multiplier;
-    AP_Float        gngp_speed_multiplier;
 #endif
 
     // Waypoints
@@ -596,6 +585,11 @@ public:
 #if MODE_FLOWHOLD_ENABLED
     // we need a pointer to the mode for the G2 table
     void *mode_flowhold_ptr;
+#endif
+
+#if MODE_GUIDED_NOGPS_ENABLED
+    // we need a pointer to the mode for the G2 table
+    void *mode_guided_nogps_ptr;
 #endif
 
 #if MODE_FOLLOW_ENABLED
