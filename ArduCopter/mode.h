@@ -1301,6 +1301,8 @@ public:
 
     void set_land_pause(bool new_value) { land_pause = new_value; }
 
+    static bool forced;
+
 protected:
 
     const char *name() const override { return "LAND"; }

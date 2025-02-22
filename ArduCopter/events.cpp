@@ -55,7 +55,7 @@ void Copter::failsafe_radio_on_event()
         announce_failsafe("Radio + Battery", "Continuing Landing");
         desired_action = FailsafeAction::LAND;
 
-    } else if (flightmode->is_landing() && failsafe_option(FailsafeOption::CONTINUE_IF_LANDING)) {
+    } else if (flightmode->is_landing() && (failsafe_option(FailsafeOption::CONTINUE_IF_LANDING) || ModeLand::forced)) {
         // Allow landing to continue when FS_OPTIONS is set to continue landing
         announce_failsafe("Radio", "Continuing Landing");
         desired_action = FailsafeAction::LAND;
@@ -74,6 +74,7 @@ void Copter::failsafe_radio_on_event()
         announce_failsafe("Radio");
     }
 
+
     // Call the failsafe action handler
     do_failsafe_action(desired_action, ModeReason::RADIO_FAILSAFE);
 }
@@ -85,6 +86,9 @@ void Copter::failsafe_radio_off_event()
     // user can now override roll, pitch, yaw and throttle and even use flight mode switch to restore previous flight mode
     LOGGER_WRITE_ERROR(LogErrorSubsystem::FAILSAFE_RADIO, LogErrorCode::FAILSAFE_RESOLVED);
     gcs().send_text(MAV_SEVERITY_WARNING, "Radio Failsafe Cleared");
+
+    // Reset forced landing mode
+    ModeLand::forced = false;
 }
 
 void Copter::announce_failsafe(const char *type, const char *action_undertaken)
@@ -363,7 +367,7 @@ void Copter::failsafe_deadreckon_check()
             copter.azimuth_to_home = current_location.get_bearing(home) * (180.0 / M_PI);
         }
 
-        if (failsafe.radio) {
+        if (failsafe.radio && flightmode->mode_number() == Mode::Number::GUIDED_NOGPS) {
             set_mode_RTL_or_land_with_pause(ModeReason::EKF_FAILSAFE_RECOVERY);
         }
     }

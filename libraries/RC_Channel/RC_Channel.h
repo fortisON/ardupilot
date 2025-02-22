@@ -261,6 +261,7 @@ public:
         ICE_START_STOP =     179, // AP_ICEngine start stop
         AUTOTUNE_TEST_GAINS = 180, // auto tune tuning switch to test or revert gains
         QUICKTUNE =          181,  //quicktune 3 position switch
+        FORCE_LAND =         183,  //force land mode
 
 
         // inputs from 200 will eventually used to replace RCMAP
