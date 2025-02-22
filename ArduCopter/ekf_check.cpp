@@ -222,10 +222,6 @@ void Copter::failsafe_ekf_off_event(void)
         gcs().send_text(MAV_SEVERITY_CRITICAL, "EKF Failsafe Cleared");
     }
     LOGGER_WRITE_ERROR(LogErrorSubsystem::FAILSAFE_EKFINAV, LogErrorCode::FAILSAFE_RESOLVED);
-
-    if (failsafe.radio && gps.num_sats() > 15 && gps.get_hdop() < 60) {
-        set_mode(Mode::Number::RTL, ModeReason::EKF_FAILSAFE_RECOVERY);
-    }
 }
 
 // re-check if the flight mode requires GPS but EKF failsafe is active

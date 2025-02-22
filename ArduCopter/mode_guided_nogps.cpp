@@ -88,7 +88,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
     home_yaw = normalize_angle_deg(g.dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(g.dr_home_yaw));
 
-    flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz.get());
+    flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), 5);
 
     flow_pi_xy.reset_I();
     flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz());
