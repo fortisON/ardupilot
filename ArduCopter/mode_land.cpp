@@ -1,5 +1,7 @@
 #include "Copter.h"
 
+bool ModeLand::forced = false;
+
 // land_init - initialise land controller
 bool ModeLand::init(bool ignore_checks)
 {
@@ -72,6 +74,7 @@ void ModeLand::gps_run()
 
     // Land State Machine Determination
     if (is_disarmed_or_landed()) {
+        ModeLand::forced = false;
         make_safe_ground_handling();
     } else {
         // set motors to full range
@@ -119,6 +122,7 @@ void ModeLand::nogps_run()
 
     // Land State Machine Determination
     if (is_disarmed_or_landed()) {
+        ModeLand::forced = false;
         make_safe_ground_handling();
     } else {
         // set motors to full range

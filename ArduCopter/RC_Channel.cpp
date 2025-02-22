@@ -86,6 +86,7 @@ void RC_Channel_Copter::init_aux_function(const AUX_FUNC ch_option, const AuxSwi
     case AUX_FUNC::FOLLOW:
     case AUX_FUNC::GUIDED:
     case AUX_FUNC::LAND:
+    case AUX_FUNC::FORCE_LAND:
     case AUX_FUNC::LOITER:
 #if HAL_PARACHUTE_ENABLED
     case AUX_FUNC::PARACHUTE_RELEASE:
@@ -311,6 +312,11 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
 #endif
 
         case AUX_FUNC::LAND:
+            do_aux_function_change_mode(Mode::Number::LAND, ch_flag);
+            break;
+
+        case AUX_FUNC::FORCE_LAND:
+            ModeLand::forced = true;
             do_aux_function_change_mode(Mode::Number::LAND, ch_flag);
             break;
 
