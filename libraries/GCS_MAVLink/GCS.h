@@ -373,9 +373,6 @@ public:
     void send_simstate() const;
     void send_sim_state() const;
     void send_ahrs();
-#if AP_MAVLINK_BATTERY2_ENABLED
-    void send_battery2();
-#endif
     void send_opticalflow();
     virtual void send_attitude() const;
     virtual void send_attitude_quaternion() const;
@@ -403,7 +400,6 @@ public:
 #if AP_WINCH_ENABLED
     virtual void send_winch_status() const {};
 #endif
-    void send_water_depth() const;
     int8_t battery_remaining_pct(const uint8_t instance) const;
 
 #if HAL_HIGH_LATENCY2_ENABLED
@@ -510,7 +506,7 @@ protected:
     bool accept_packet(const mavlink_status_t &status, const mavlink_message_t &msg) const;
     void set_ekf_origin(const Location& loc);
 
-    virtual MAV_MODE base_mode() const = 0;
+    virtual uint8_t base_mode() const = 0;
     MAV_STATE system_status() const;
     virtual MAV_STATE vehicle_system_status() const = 0;
 
@@ -798,7 +794,7 @@ private:
     };
     void log_mavlink_stats();
 
-    MAV_RESULT _set_mode_common(const MAV_MODE base_mode, const uint32_t custom_mode);
+    MAV_RESULT _set_mode_common(const uint8_t base_mode, const uint32_t custom_mode);
 
     // send a (textual) message to the GCS that a received message has
     // been deprecated

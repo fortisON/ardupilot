@@ -19,7 +19,6 @@
 #include <AP_HAL/AP_HAL.h>
 
 #include <AP_HAL/utility/sparse-endian.h>
-#include <AP_HAL_Linux/GPIO.h>
 #include <AP_Math/AP_Math.h>
 
 #include "AP_InertialSensor_BMI160.h"
@@ -97,9 +96,7 @@
 #define BMI160_READ_FLAG 0x80
 #define BMI160_HARDWARE_INIT_MAX_TRIES 5
 
-#if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_AERO
-#    define BMI160_INT1_GPIO AERO_GPIO_BMI160_INT1
-#else
+#ifndef BMI160_INT1_GPIO
 #    define BMI160_INT1_GPIO -1
 #endif
 
@@ -226,10 +223,10 @@ void AP_InertialSensor_BMI160::_check_err_reg()
 
     r = _dev->read_registers(BMI160_REG_ERR_REG, &v, 1);
     if (!r) {
-        AP_HAL::panic("BMI160: couldn't read ERR_REG\n");
+        AP_HAL::panic("BMI160: couldn't read ERR_REG");
     }
     if (v) {
-        AP_HAL::panic("BMI160: error detected on ERR_REG\n");
+        AP_HAL::panic("BMI160: error detected on ERR_REG");
     }
 #endif
 }
