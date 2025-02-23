@@ -1269,6 +1269,10 @@ private:
     AC_PI_2D flow_pi_xy{0.2f, 0.8f, 3000, 5, 0.0025f};
     AP_Float flow_filter_hz;
     AP_Int8  flow_min_quality;
+    AP_Float flow_impact;
+
+    bool limited;
+    Vector2f xy_I;
 
 };
 

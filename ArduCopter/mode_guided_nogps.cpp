@@ -59,6 +59,13 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_QUAL_MIN", 4, ModeGuidedNoGPS, flow_min_quality, 10),
 
+    // @Param: _IMP
+    // @DisplayName: GuidedNoGPS Flow impact
+    // @Description: Optical flow impact
+    // @Range: 0.0 1.0
+    // @User: Standard
+    AP_GROUPINFO("_IMP", 5, ModeGuidedNoGPS, flow_impact, 0.75f),
+
     // 5 was FLOW_SPEED
 
     AP_GROUPEND
@@ -139,9 +146,7 @@ void ModeGuidedNoGPS::run()
         quality_filtered = 0;
     }
 
-    if (quality_filtered >= 10) {
-        Vector2f flow_angles;
-
+    if (quality_filtered >= flow_min_quality) {
         // Flow correction
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
@@ -167,17 +172,32 @@ void ModeGuidedNoGPS::run()
         // get earth frame controller attitude in centi-degrees
         Vector2f ef_output;
 
+        // get I term
+        if (limited) {
+            // only allow I term to shrink in length
+            xy_I = flow_pi_xy.get_i_shrink();
+        } else {
+            // normal I term operation
+            xy_I = flow_pi_xy.get_pi();
+        }
+
         // get P term
-        ef_output = flow_pi_xy.get_p() * copter.aparm.angle_max;
+        ef_output = flow_pi_xy.get_p();
+        ef_output += xy_I;
+        ef_output *= copter.aparm.angle_max;
+
+        Vector2f flow_angles;
 
         // convert to body frame
         flow_angles += copter.ahrs.earth_to_body2D(ef_output);
 
-        // constrain to angle limit
-        flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
-        flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+        // set limited flag to prevent integrator windup
+        limited = fabsf(bf_angles.x) > copter.aparm.angle_max || fabsf(bf_angles.y) > copter.aparm.angle_max;
+        // limited = false;
 
-        flow_angles *= 1.2f;
+        // constrain to angle limit
+        flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
+        flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
 
         bf_angles += flow_angles;
     }
