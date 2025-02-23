@@ -2,6 +2,8 @@
 #include <cmath>
 #include <algorithm>
 
+using namespace std;
+
 #if MODE_GUIDED_NOGPS_ENABLED
 
 const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
