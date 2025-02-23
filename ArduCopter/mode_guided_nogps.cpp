@@ -2,8 +2,6 @@
 #include <cmath>
 #include <algorithm>
 
-using namespace std;
-
 #if MODE_GUIDED_NOGPS_ENABLED
 
 const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
@@ -88,7 +86,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
     home_yaw = normalize_angle_deg(g.dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(g.dr_home_yaw));
 
-    flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), 5);
+    flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
 
     flow_pi_xy.reset_I();
     flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz());
@@ -146,8 +144,8 @@ void ModeGuidedNoGPS::run()
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
         // limit sensor flow, this prevents oscillation at low altitudes
-        raw_flow.x = constrain_float(raw_flow.x, -0.6f, 0.6f);
-        raw_flow.y = constrain_float(raw_flow.y, -0.6f, 0.6f);
+        raw_flow.x = constrain_float(raw_flow.x, -flow_max, flow_max);
+        raw_flow.y = constrain_float(raw_flow.y, -flow_max, flow_max);
 
         // filter the flow rate
         Vector2f sensor_flow = flow_filter.apply(raw_flow);
@@ -176,6 +174,8 @@ void ModeGuidedNoGPS::run()
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+
+        flow_angles *= 1.2f;
 
         bf_angles += flow_angles;
     }
