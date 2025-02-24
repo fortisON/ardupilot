@@ -210,7 +210,7 @@ void ModeGuidedNoGPS::run()
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
         bf_angles.x,
         bf_angles.y,
-        get_pilot_desired_yaw_rate()
+        0
     );
 
     // run the vertical position controller and set output throttle
