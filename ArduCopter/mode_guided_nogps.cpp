@@ -59,12 +59,33 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_QUAL_MIN", 4, ModeGuidedNoGPS, flow_min_quality, 10),
 
-    // @Param: _IMP
+    // @Param: _FLOW_IMP
     // @DisplayName: GuidedNoGPS Flow impact
     // @Description: Optical flow impact
     // @Range: 0.0 1.0
     // @User: Standard
-    AP_GROUPINFO("_IMP", 5, ModeGuidedNoGPS, flow_impact, 0.75f),
+    AP_GROUPINFO("_FLOW_IMP", 5, ModeGuidedNoGPS, flow_impact, 0.5f),
+
+    // @Param: _FLOW_SMPL
+    // @DisplayName: GuidedNoGPS Flow filter samples
+    // @Description: Optical flow filter samples
+    // @Range: 0 255
+    // @User: Standard
+    AP_GROUPINFO("_FLOW_SMPL", 6, ModeGuidedNoGPS, flow_filter_samples, 15),
+
+    // @Param: _YAW_RATE
+    // @DisplayName: GuidedNoGPS yaw rate
+    // @Description: Yaw rate for YAW state (in degrees per second)
+    // @Range: 0.0 10.0
+    // @User: Standard
+    AP_GROUPINFO("_YAW_RATE", 7, ModeGuidedNoGPS, yaw_rate, 3),
+
+    // @Param: _CLMB_RATE
+    // @DisplayName: GuidedNoGPS climb rate
+    // @Description: Climb rate for FLY state
+    // @Range: 0 10
+    // @User: Standard
+    AP_GROUPINFO("_CLMB_RATE", 8, ModeGuidedNoGPS, climb_rate, 3),
 
     // 5 was FLOW_SPEED
 
@@ -88,6 +109,8 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
         pos_control->init_z_controller();
     }
 
+    _state = State::YAW;
+
     // Set parameters
     fly_angle = copter.aparm.angle_max / 100.0f;    // maximum tilt angle in radians (angle_max in hundredths of a degree)
 
@@ -100,6 +123,9 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     flow_pi_xy.reset_I();
     flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz());
 
+    flow_samples_count = 0;
+    flow_error.zero();
+
     // Information message
     gcs().send_text(MAV_SEVERITY_INFO, "DR Start");
 
@@ -109,34 +135,67 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
+    switch (_state) {
+        case State::YAW:
+            yaw_run();
+            break;
+
+        case State::FLY:
+            fly_run();
+            break;
+    }
+
+    // run the vertical position controller and set output throttle
+    pos_control->update_z_controller();
+}
+
+void ModeGuidedNoGPS::yaw_run()
+{
+    // Calculate the yaw error
+    float error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+
+    // Calculate the yaw rate
+    float rate = yaw_rate * 1000;
+
+    if (error < 0) {
+        rate = -rate;
+    }
+
+    if (abs(error) < 1.0f) {
+        _state = State::FLY;
+    } else {
+        // Send the yaw rate to the attitude controller
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
+    }
+}
+
+void ModeGuidedNoGPS::fly_run()
+{
     // Calculate the current altitude below home
     float curr_alt_below_home = 0.0f;
-    AP::ahrs().get_relative_position_D_home(curr_alt_below_home);
+    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
 
     // Calculate the target altitude above the vehicle
     float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
     float climb_rate_chg_max = interval_ms * 0.001f * (wp_nav->get_accel_z() * 0.01f);
-    
-    climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, climb_rate + climb_rate_chg_max));
 
     copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
-    climb_rate = get_avoidance_adjusted_climbrate(climb_rate);
+    target_climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, target_climb_rate + climb_rate_chg_max));
+    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
 
-    pos_control->set_pos_target_z_from_climb_rate_cm(climb_rate);
+    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
 
     // Calculate body to home azimuth
-    float current_yaw = AP::ahrs().get_yaw() * (180 / M_PI);
-    float body_to_home_azimuth = home_yaw + (-current_yaw);
-
-    body_to_home_azimuth = body_to_home_azimuth / (180 / M_PI);
+    float current_yaw = degrees(copter.ahrs.get_yaw());
+    float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
 
     // Create vector for body to home azimuth needed to apply correct body angle
     Vector2f home_vector = Vector2f(sinf(body_to_home_azimuth), -cosf(body_to_home_azimuth));
     Vector2f bf_angles = Vector2f(home_vector.x, home_vector.y);
 
     float angle_max = copter.aparm.angle_max;
-    bf_angles *= angle_max;
+    bf_angles = bf_angles.normalized() * angle_max;
 
 #if AP_OPTICALFLOW_ENABLED
     if (copter.optflow.healthy()) {
@@ -150,12 +209,23 @@ void ModeGuidedNoGPS::run()
         // Flow correction
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
+        flow_samples_count++;
+
+        // Subtract the previous error
+        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 20;
+        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 20;
+
+        if (flow_samples_count == flow_filter_samples) {
+            flow_samples_count = 0;
+            flow_error = flow_error_buff;
+        }
+
         // limit sensor flow, this prevents oscillation at low altitudes
-        raw_flow.x = constrain_float(raw_flow.x, -flow_max, flow_max);
-        raw_flow.y = constrain_float(raw_flow.y, -flow_max, flow_max);
+        flow_error.x = constrain_float(flow_error.x, -flow_max, flow_max);
+        flow_error.y = constrain_float(flow_error.y, -flow_max, flow_max);
 
         // filter the flow rate
-        Vector2f sensor_flow = flow_filter.apply(raw_flow);
+        Vector2f sensor_flow = flow_filter.apply(flow_error);
 
         // scale by height estimate
         float height = copter.inertial_nav.get_position_z_up_cm() * 0.01;
@@ -193,13 +263,13 @@ void ModeGuidedNoGPS::run()
 
         // set limited flag to prevent integrator windup
         limited = fabsf(bf_angles.x) > copter.aparm.angle_max || fabsf(bf_angles.y) > copter.aparm.angle_max;
-        // limited = false;
 
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
 
-        bf_angles += flow_angles;
+        bf_angles.x += flow_angles.x + bf_angles.x * flow_impact;
+        bf_angles.y += flow_angles.y + bf_angles.y * flow_impact;
     }
 #endif
 
@@ -212,9 +282,6 @@ void ModeGuidedNoGPS::run()
         bf_angles.y,
         0
     );
-
-    // run the vertical position controller and set output throttle
-    pos_control->update_z_controller();
 }
 
 #endif

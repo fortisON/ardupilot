@@ -1234,6 +1234,11 @@ public:
     bool init(bool ignore_checks) override;
     void run() override;
 
+    void yaw_run();
+    void fly_run();
+
+    enum class State { YAW, FLY };
+
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
     bool is_autopilot() const override { return true; }
@@ -1249,12 +1254,14 @@ private:
 
     float normalize_angle_deg(float angle);
 
+    State _state;
+
     LowPassFilterConstDtVector2f flow_filter;
 
     float fly_angle = 0.0f;
     float interval_ms = 100.0f;
     float fly_alt_min = 50.0f;
-    float climb_rate = 0.0f;
+    float target_climb_rate = 0.0f;
     float home_yaw = 0.0f;
 
     float quality_filtered = 0.0f;
@@ -1270,9 +1277,15 @@ private:
     AP_Float flow_filter_hz;
     AP_Int8  flow_min_quality;
     AP_Float flow_impact;
+    AP_Int8  flow_filter_samples;
+    AP_Float yaw_rate;
+    AP_Int8  climb_rate;
 
     bool limited;
     Vector2f xy_I;
+    Vector2f flow_error;
+    Vector2f flow_error_buff;
+    int flow_samples_count = 0;
 
 };
 
