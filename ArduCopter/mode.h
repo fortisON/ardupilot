@@ -1236,6 +1236,7 @@ public:
 
     void yaw_run();
     void fly_run();
+    void optflow_correction(Vector2f &target_angles);
 
     enum class State { YAW, FLY };
 
