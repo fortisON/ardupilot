@@ -4,7 +4,7 @@
 
 include minimize_common.inc
 
-define AP_OPTICALFLOW_ENABLED 0
+define AP_OPTICALFLOW_ENABLED 1
 
 # minimize_common.py removes backends except for a select few.  Add
 # some back in:
