@@ -198,6 +198,22 @@ void ModeGuidedNoGPS::fly_run()
     bf_angles = bf_angles.normalized() * angle_max;
 
 #if AP_OPTICALFLOW_ENABLED
+    optflow_correction(bf_angles);
+#endif
+
+    bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
+    bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
+
+    // call attitude controller
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
+        bf_angles.x,
+        bf_angles.y,
+        0
+    );
+}
+
+void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
+{
     if (copter.optflow.healthy()) {
         const float filter_constant = 0.95;
         quality_filtered = filter_constant * quality_filtered + (1-filter_constant) * copter.optflow.quality();
@@ -262,26 +278,15 @@ void ModeGuidedNoGPS::fly_run()
         flow_angles += copter.ahrs.earth_to_body2D(ef_output);
 
         // set limited flag to prevent integrator windup
-        limited = fabsf(bf_angles.x) > copter.aparm.angle_max || fabsf(bf_angles.y) > copter.aparm.angle_max;
+        limited = fabsf(target_angles.x) > copter.aparm.angle_max || fabsf(target_angles.y) > copter.aparm.angle_max;
 
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
 
-        bf_angles.x += flow_angles.x + bf_angles.x * flow_impact;
-        bf_angles.y += flow_angles.y + bf_angles.y * flow_impact;
+        target_angles.x += flow_angles.x + target_angles.x * flow_impact;
+        target_angles.y += flow_angles.y + target_angles.y * flow_impact;
     }
-#endif
-
-    bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
-    bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
-
-    // call attitude controller
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
-        bf_angles.x,
-        bf_angles.y,
-        0
-    );
 }
 
 #endif
