@@ -1236,7 +1236,10 @@ public:
 
     void yaw_run();
     void fly_run();
+
+#ifdef AP_OPTICALFLOW_ENABLED
     void optflow_correction(Vector2f &target_angles);
+#endif
 
     enum class State { YAW, FLY };
 
@@ -1257,13 +1260,14 @@ private:
 
     State _state;
 
-    LowPassFilterConstDtVector2f flow_filter;
-
     float fly_angle = 0.0f;
     float interval_ms = 100.0f;
     float fly_alt_min = 50.0f;
     float target_climb_rate = 0.0f;
     float home_yaw = 0.0f;
+
+#ifdef AP_OPTICALFLOW_ENABLED
+    LowPassFilterConstDtVector2f flow_filter;
 
     float quality_filtered = 0.0f;
 
@@ -1287,6 +1291,7 @@ private:
     Vector2f flow_error;
     Vector2f flow_error_buff;
     int flow_samples_count = 0;
+#endif
 
 };
 

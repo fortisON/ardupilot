@@ -6,6 +6,7 @@ using namespace std;
 
 #if MODE_GUIDED_NOGPS_ENABLED
 
+#ifdef AP_OPTICALFLOW_ENABLED
 const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Param: _XY_P
     // @DisplayName: GuidedNoGPS P gain
@@ -97,6 +98,8 @@ ModeGuidedNoGPS::ModeGuidedNoGPS(void) : ModeGuided()
     AP_Param::setup_object_defaults(this, var_info);
 }
 
+#endif
+
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
 }
@@ -118,6 +121,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
     home_yaw = normalize_angle_deg(g.dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(g.dr_home_yaw));
 
+#ifdef AP_OPTICALFLOW_ENABLED
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
 
     flow_pi_xy.reset_I();
@@ -125,6 +129,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 
     flow_samples_count = 0;
     flow_error.zero();
+#endif
 
     // Information message
     gcs().send_text(MAV_SEVERITY_INFO, "DR Start");
@@ -212,6 +217,7 @@ void ModeGuidedNoGPS::fly_run()
     );
 }
 
+#if AP_OPTICALFLOW_ENABLED
 void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
 {
     if (copter.optflow.healthy()) {
@@ -288,5 +294,6 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
     }
 }
+#endif
 
 #endif
