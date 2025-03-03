@@ -97,7 +97,6 @@ ModeGuidedNoGPS::ModeGuidedNoGPS(void) : ModeGuided()
 {
     AP_Param::setup_object_defaults(this, var_info);
 }
-
 #endif
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
@@ -112,7 +111,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
         pos_control->init_z_controller();
     }
 
-    _state = State::YAW;
+    _state = State::PREPARE;
 
     // Set parameters
     fly_angle = copter.aparm.angle_max / 100.0f;    // maximum tilt angle in radians (angle_max in hundredths of a degree)
@@ -141,8 +140,8 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 void ModeGuidedNoGPS::run()
 {
     switch (_state) {
-        case State::YAW:
-            yaw_run();
+        case State::PREPARE:
+            prepare_run();
             break;
 
         case State::FLY:
@@ -154,8 +153,23 @@ void ModeGuidedNoGPS::run()
     pos_control->update_z_controller();
 }
 
-void ModeGuidedNoGPS::yaw_run()
+void ModeGuidedNoGPS::prepare_run()
 {
+    // Calculate the current altitude below home
+    float curr_alt_below_home = 0.0f;
+    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
+
+    // Calculate the target altitude above the vehicle
+    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
+    float climb_rate_chg_max = interval_ms * 0.001f * (wp_nav->get_accel_z() * 0.01f);
+
+    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+
+    target_climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, target_climb_rate + climb_rate_chg_max));
+    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
+
+    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+
     // Calculate the yaw error
     float error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
 
@@ -176,21 +190,6 @@ void ModeGuidedNoGPS::yaw_run()
 
 void ModeGuidedNoGPS::fly_run()
 {
-    // Calculate the current altitude below home
-    float curr_alt_below_home = 0.0f;
-    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
-
-    // Calculate the target altitude above the vehicle
-    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
-    float climb_rate_chg_max = interval_ms * 0.001f * (wp_nav->get_accel_z() * 0.01f);
-
-    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
-
-    target_climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, target_climb_rate + climb_rate_chg_max));
-    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
-
-    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
-
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
     float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
