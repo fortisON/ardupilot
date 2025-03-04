@@ -1233,11 +1233,14 @@ public:
 
     bool init(bool ignore_checks) override;
     void run() override;
-
-    void prepare_run();
+    
+    void yaw_run();
     void fly_run();
 
-    enum class State { PREPARE, FLY };
+    enum class State {
+        YAW,
+        FLY
+    };
 
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
@@ -1258,15 +1261,24 @@ private:
     void optflow_correction(Vector2f &target_angles);
 #endif
 
+    AP_Float yaw_rate;
+    AP_Int8  climb_rate;
+
     State _state;
 
     float fly_angle = 0.0f;
     float interval_ms = 100.0f;
     float fly_alt_min = 50.0f;
-    float target_climb_rate = 0.0f;
     float home_yaw = 0.0f;
 
 #ifdef AP_OPTICALFLOW_ENABLED
+    AP_Float flow_max;
+    AC_PI_2D flow_pi_xy{0.2f, 0.8f, 3000, 5, 0.0025f};
+    AP_Float flow_filter_hz;
+    AP_Int8  flow_min_quality;
+    AP_Float flow_impact;
+    AP_Int8  flow_filter_samples;
+    
     LowPassFilterConstDtVector2f flow_filter;
 
     float quality_filtered = 0.0f;
@@ -1276,15 +1288,6 @@ private:
 
     // maximum scaling height
     const float height_max = 200.0f;
-
-    AP_Float flow_max;
-    AC_PI_2D flow_pi_xy{0.2f, 0.8f, 3000, 5, 0.0025f};
-    AP_Float flow_filter_hz;
-    AP_Int8  flow_min_quality;
-    AP_Float flow_impact;
-    AP_Int8  flow_filter_samples;
-    AP_Float yaw_rate;
-    AP_Int8  climb_rate;
 
     bool limited;
     Vector2f xy_I;

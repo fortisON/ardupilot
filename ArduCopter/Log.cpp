@@ -354,6 +354,16 @@ struct PACKED log_Rate_Thread_Dt {
     float dtMin;
 };
 
+// guided no gps optflow PI logging
+struct PACKED log_GuidedNoGPS_Optflow_PI {
+    LOG_PACKET_HEADER;
+    uint64_t time_us;
+    float flow_p_x;
+    float flow_p_y;
+    float flow_i_x;
+    float flow_i_y;
+};
+
 // Write a Guided mode position target
 // pos_target is lat, lon, alt OR offset from ekf origin in cm
 // terrain should be 0 if pos_target.z is alt-above-ekf-origin, 1 if alt-above-terrain
@@ -414,6 +424,22 @@ void Copter::Log_Write_Rate_Thread_Dt(float dt, float dtAvg, float dtMax, float 
     };
     logger.WriteBlock(&pkt, sizeof(pkt));
 #endif
+}
+
+void Copter::Log_Write_Optflow_PI(Vector2f flow_p, Vector2f flow_i)
+{
+    #if AP_OPTICALFLOW_ENABLED
+    const log_GuidedNoGPS_Optflow_PI pkt {
+        LOG_PACKET_HEADER_INIT(LOG_GUIDED_NOGPS_OPTFLOW_PI_MSG),
+        time_us : AP_HAL::micros64(),
+        flow_p_x: flow_p.x,
+        flow_p_y: flow_p.y,
+        flow_i_x: flow_i.x,
+        flow_i_y: flow_i.y
+    };
+
+    logger.WriteBlock(&pkt, sizeof(pkt));
+    #endif
 }
 
 // type and unit information can be found in
@@ -568,6 +594,17 @@ const struct LogStructure Copter::log_structure[] = {
 
     { LOG_RATE_THREAD_DT_MSG, sizeof(log_Rate_Thread_Dt),
       "RTDT", "Qffff", "TimeUS,dt,dtAvg,dtMax,dtMin", "sssss", "F----" , true },
+
+// @LoggerMessage: GOPI
+// @Description: GuidedNoGPS Optflow PI controller information
+// @Field: TimeUS: Time since system startup
+// @Field: flow_p_x: P for X axis
+// @Field: flow_p_y: P for Y axis
+// @Field: flow_i_x: I for X axis
+// @Field: flow_i_y: I for Y axis
+
+    { LOG_GUIDED_NOGPS_OPTFLOW_PI_MSG, sizeof(log_GuidedNoGPS_Optflow_PI),
+      "GOPI", "Qffff", "TimeUS,flow_p_x,flow_p_y,flow_i_x,flow_i_y", "s----", "F2222" , true },
 
 };
 
