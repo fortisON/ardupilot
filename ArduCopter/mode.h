@@ -100,6 +100,7 @@ public:
         AUTOROTATE =   26,  // Autonomous autorotation
         AUTO_RTL =     27,  // Auto RTL, this is not a true mode, AUTO will report as this mode if entered to perform a DO_LAND_START Landing sequence
         TURTLE =       28,  // Flip over after crash
+        DROP =         29,  // Drop mode is used to drop a payload from a UAV
 
         // Mode number 127 reserved for the "drone show mode" in the Skybrush
         // fork at https://github.com/skybrush-io/ardupilot
@@ -2121,5 +2122,24 @@ private:
     //--- Internal functions ---
     void warning_message(uint8_t message_n);    //Handles output messages to the terminal
 
+};
+#endif
+
+#if MODE_DROP_ENABLED
+class ModeDrop : public Mode {
+    public:
+        using Mode::Mode;
+
+        bool init() override;
+        void run() override;
+
+        bool is_autopilot() const override { return false; }
+        bool requires_GPS() const override { return false; }
+        bool has_manual_throttle() const override { return true; }
+        bool allows_arming(AP_Arming::Method method) const override { return false; };
+
+    protected:
+        const char *name() const override { return "DROP"; }
+        const char *name4() const override { return "DROP"; }
 };
 #endif
