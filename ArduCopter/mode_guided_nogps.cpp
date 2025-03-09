@@ -152,7 +152,7 @@ void ModeGuidedNoGPS::run()
     target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
     target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
 
-    if (abs(target_alt_above_vehicle) > 1.0f) {
+    if (abs(target_alt_above_vehicle) > 0.5f) {
         pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
     } else {
         pos_control->set_pos_target_z_from_climb_rate_cm(0);
@@ -178,9 +178,9 @@ void ModeGuidedNoGPS::yaw_run()
     float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
 
     // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000;
+    float target_yaw_rate = yaw_rate * 1000 * min(1.0f, 5 / abs(yaw_error));
 
-    if (yaw_error > 0) {
+    if (yaw_error > 45 && target_yaw_rate > 0) {
         target_yaw_rate = -target_yaw_rate;
     }
 
