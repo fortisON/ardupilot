@@ -178,13 +178,13 @@ void ModeGuidedNoGPS::yaw_run()
     float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
 
     // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000 * min(1.0f, 5 / abs(yaw_error));
+    float target_yaw_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
 
     if (yaw_error > 45 && target_yaw_rate > 0) {
         target_yaw_rate = -target_yaw_rate;
     }
 
-    if (abs(yaw_error) > 1.0f) {
+    if (abs(yaw_error) > 0.5f) {
         copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, target_yaw_rate);
     } else {
         _state = State::FLY;
