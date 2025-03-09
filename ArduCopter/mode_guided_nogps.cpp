@@ -6,8 +6,22 @@ using namespace std;
 
 #if MODE_GUIDED_NOGPS_ENABLED
 
-#ifdef AP_OPTICALFLOW_ENABLED
 const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
+    // @Param: _YAW_RATE
+    // @DisplayName: GuidedNoGPS yaw rate
+    // @Description: Yaw rate for YAW state (in degrees per second)
+    // @Range: 0.0 10.0
+    // @User: Standard
+    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 3),
+
+    // @Param: _CLMB_RATE
+    // @DisplayName: GuidedNoGPS climb rate
+    // @Description: Climb rate for FLY state
+    // @Range: 0 10
+    // @User: Standard
+    AP_GROUPINFO("_CLMB_RATE", 2, ModeGuidedNoGPS, climb_rate, 3),
+
+#ifdef AP_OPTICALFLOW_ENABLED
     // @Param: _XY_P
     // @DisplayName: GuidedNoGPS P gain
     // @Description: GuidedNoGPS (horizontal) P gain.
@@ -36,14 +50,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Range: 0 100
     // @Units: Hz
     // @User: Advanced
-    AP_SUBGROUPINFO(flow_pi_xy, "_XY_",  1, ModeGuidedNoGPS, AC_PI_2D),
+    AP_SUBGROUPINFO(flow_pi_xy, "_XY_",  3, ModeGuidedNoGPS, AC_PI_2D),
 
     // @Param: _FLOW_MAX
     // @DisplayName: GuidedNoGPS Flow Rate Max
     // @Description: Controls maximum apparent flow rate in GuidedNoGPS
     // @Range: 0.1 2.5
     // @User: Standard
-    AP_GROUPINFO("_FLOW_MAX", 2, ModeGuidedNoGPS, flow_max, 0.6),
+    AP_GROUPINFO("_FLOW_MAX", 4, ModeGuidedNoGPS, flow_max, 0.6),
 
     // @Param: _FILT_HZ
     // @DisplayName: GuidedNoGPS Filter Frequency
@@ -51,44 +65,29 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Range: 1 100
     // @Units: Hz
     // @User: Standard
-    AP_GROUPINFO("_FILT_HZ", 3, ModeGuidedNoGPS, flow_filter_hz, 5),
+    AP_GROUPINFO("_FILT_HZ", 5, ModeGuidedNoGPS, flow_filter_hz, 5),
 
     // @Param: _QUAL_MIN
     // @DisplayName: GuidedNoGPS Flow quality minimum
     // @Description: Minimum flow quality to use flow position hold
     // @Range: 0 255
     // @User: Standard
-    AP_GROUPINFO("_QUAL_MIN", 4, ModeGuidedNoGPS, flow_min_quality, 10),
+    AP_GROUPINFO("_QUAL_MIN", 6, ModeGuidedNoGPS, flow_min_quality, 10),
 
     // @Param: _FLOW_IMP
     // @DisplayName: GuidedNoGPS Flow impact
     // @Description: Optical flow impact
     // @Range: 0.0 1.0
     // @User: Standard
-    AP_GROUPINFO("_FLOW_IMP", 5, ModeGuidedNoGPS, flow_impact, 0.5f),
+    AP_GROUPINFO("_FLOW_IMP", 7, ModeGuidedNoGPS, flow_impact, 0.5f),
 
     // @Param: _FLOW_SMPL
     // @DisplayName: GuidedNoGPS Flow filter samples
     // @Description: Optical flow filter samples
     // @Range: 0 255
     // @User: Standard
-    AP_GROUPINFO("_FLOW_SMPL", 6, ModeGuidedNoGPS, flow_filter_samples, 15),
-
-    // @Param: _YAW_RATE
-    // @DisplayName: GuidedNoGPS yaw rate
-    // @Description: Yaw rate for YAW state (in degrees per second)
-    // @Range: 0.0 10.0
-    // @User: Standard
-    AP_GROUPINFO("_YAW_RATE", 7, ModeGuidedNoGPS, yaw_rate, 3),
-
-    // @Param: _CLMB_RATE
-    // @DisplayName: GuidedNoGPS climb rate
-    // @Description: Climb rate for FLY state
-    // @Range: 0 10
-    // @User: Standard
-    AP_GROUPINFO("_CLMB_RATE", 8, ModeGuidedNoGPS, climb_rate, 3),
-
-    // 5 was FLOW_SPEED
+    AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 15),
+#endif
 
     AP_GROUPEND
 };
@@ -97,8 +96,6 @@ ModeGuidedNoGPS::ModeGuidedNoGPS(void) : ModeGuided()
 {
     AP_Param::setup_object_defaults(this, var_info);
 }
-
-#endif
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
@@ -140,6 +137,27 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
+    // Calculate the current altitude below home
+    float curr_alt_below_home = 0.0f;
+    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
+
+    // Calculate the target altitude above the vehicle
+    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
+
+    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+    
+    // Climb rate control
+    float target_climb_rate = target_alt_above_vehicle > 0 ? climb_rate * 100 : -climb_rate * 100;
+
+    target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
+    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
+
+    if (abs(target_alt_above_vehicle) > 0.5f) {
+        pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+    } else {
+        pos_control->set_pos_target_z_from_climb_rate_cm(0);
+    }
+
     switch (_state) {
         case State::YAW:
             yaw_run();
@@ -157,40 +175,24 @@ void ModeGuidedNoGPS::run()
 void ModeGuidedNoGPS::yaw_run()
 {
     // Calculate the yaw error
-    float error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+    float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
 
     // Calculate the yaw rate
-    float rate = yaw_rate * 1000;
+    float target_yaw_rate = yaw_rate * 1000 * min(1.0f, 5 / abs(yaw_error));
 
-    if (error < 0) {
-        rate = -rate;
+    if (yaw_error > 45 && target_yaw_rate > 0) {
+        target_yaw_rate = -target_yaw_rate;
     }
 
-    if (abs(error) < 1.0f) {
-        _state = State::FLY;
+    if (abs(yaw_error) > 1.0f) {
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, target_yaw_rate);
     } else {
-        // Send the yaw rate to the attitude controller
-        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
+        _state = State::FLY;
     }
 }
 
 void ModeGuidedNoGPS::fly_run()
 {
-    // Calculate the current altitude below home
-    float curr_alt_below_home = 0.0f;
-    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
-
-    // Calculate the target altitude above the vehicle
-    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
-    float climb_rate_chg_max = interval_ms * 0.001f * (wp_nav->get_accel_z() * 0.01f);
-
-    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
-
-    target_climb_rate = min(target_alt_above_vehicle * 0.1f, min(wp_nav->get_default_speed_up() * 0.01f, target_climb_rate + climb_rate_chg_max));
-    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
-
-    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
-
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
     float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
@@ -204,7 +206,7 @@ void ModeGuidedNoGPS::fly_run()
 
 #if AP_OPTICALFLOW_ENABLED
     optflow_correction(bf_angles);
-#endif
+#endif // AP_OPTICALFLOW_ENABLED
 
     bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
     bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
@@ -234,8 +236,8 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         flow_samples_count++;
 
         // Subtract the previous error
-        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 20;
-        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 20;
+        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 25;
+        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 25;
 
         if (flow_samples_count == flow_filter_samples) {
             flow_samples_count = 0;
@@ -278,6 +280,10 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         ef_output += xy_I;
         ef_output *= copter.aparm.angle_max;
 
+#ifdef HAL_LOGGING_ENABLED
+        copter.Log_Write_Optflow_PI(flow_pi_xy.get_p(), xy_I);
+#endif // HAL_LOGGING_ENABLED
+
         Vector2f flow_angles;
 
         // convert to body frame
@@ -294,6 +300,5 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
     }
 }
-#endif
-
-#endif
+#endif // AP_OPTICALFLOW_ENABLED
+#endif // MODE_GUIDED_NOGPS_ENABLED
