@@ -71,8 +71,6 @@ RC_Channel * RC_Channels_Copter::get_arming_channel(void) const
 // init_aux_switch_function - initialize aux functions
 void RC_Channel_Copter::init_aux_function(const AUX_FUNC ch_option, const AuxSwitchPos ch_flag)
 {
-     gcs().send_text(MAV_SEVERITY_INFO, ch_option == AUX_FUNC::FORCE_LAND ? "Force Landing" : "Other aux function");
-     
     // init channel options
     switch(ch_option) {
     // the following functions do not need to be initialised:

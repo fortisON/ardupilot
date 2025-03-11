@@ -105,7 +105,7 @@ define AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED 0
 
 # Copter-specific defines; these defines are only used in the Copter
 #  directory, but are seen across the entire codebase:
-define MODE_FLOWHOLD_ENABLED 0
+define MODE_FLOWHOLD_ENABLED AP_OPTICALFLOW_ENABLED
 define MODE_ZIGZAG_ENABLED 0
 define AC_NAV_GUIDED 0
 define AP_OAPATHPLANNER_ENABLED 0
