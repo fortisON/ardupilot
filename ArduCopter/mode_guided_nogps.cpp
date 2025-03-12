@@ -236,8 +236,8 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         flow_samples_count++;
 
         // Subtract the previous error
-        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 20;
-        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 20;
+        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 25;
+        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 25;
 
         if (flow_samples_count == flow_filter_samples) {
             flow_samples_count = 0;

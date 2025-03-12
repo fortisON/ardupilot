@@ -2129,8 +2129,9 @@ private:
 class ModeDrop : public Mode {
     public:
         using Mode::Mode;
+        Number mode_number() const override { return Number::DROP; }
 
-        bool init() override;
+        bool init(bool ignore_checks) override;
         void run() override;
 
         bool is_autopilot() const override { return false; }

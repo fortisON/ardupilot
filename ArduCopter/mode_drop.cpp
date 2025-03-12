@@ -4,7 +4,7 @@
 
 bool ModeDrop::init(bool ignore_checks)
 {
-
+    return true;
 }
 
 void ModeDrop::run()
