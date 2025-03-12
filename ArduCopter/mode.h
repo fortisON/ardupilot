@@ -1256,6 +1256,8 @@ protected:
 private:
 
     float normalize_angle_deg(float angle);
+    float get_yaw_error();
+    float calculate_yaw_rate(float error);
 
 #ifdef AP_OPTICALFLOW_ENABLED
     void optflow_correction(Vector2f &target_angles);

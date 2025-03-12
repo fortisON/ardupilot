@@ -101,6 +101,20 @@ float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
 }
 
+float ModeGuidedNoGPS::get_yaw_error() {
+    return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+}
+
+float ModeGuidedNoGPS::calculate_yaw_rate(float error) {
+    float rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(error) / 20));
+
+    if (error > 45 && rate > 0) {
+        rate = -rate;
+    }
+
+    return rate;
+}
+
 // Initialize the guided_nogps controller
 bool ModeGuidedNoGPS::init(bool ignore_checks)
 {
@@ -138,7 +152,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 void ModeGuidedNoGPS::run()
 {
     // Calculate the current altitude below home
-    float curr_alt_below_home = 0.0f;
+    float curr_aModeGuidedNoGPSlt_below_home = 0.0f;
     copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
 
     // Calculate the target altitude above the vehicle
@@ -175,17 +189,13 @@ void ModeGuidedNoGPS::run()
 void ModeGuidedNoGPS::yaw_run()
 {
     // Calculate the yaw error
-    float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+    float error = get_yaw_error();
 
     // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
+    float rate = calculate_yaw_rate(error);
 
-    if (yaw_error > 45 && target_yaw_rate > 0) {
-        target_yaw_rate = -target_yaw_rate;
-    }
-
-    if (abs(yaw_error) > 0.5f) {
-        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, target_yaw_rate);
+    if (abs(error) > 0.5f) {
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
     } else {
         _state = State::FLY;
     }
@@ -211,11 +221,19 @@ void ModeGuidedNoGPS::fly_run()
     bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
     bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
 
+    // Maybe apply yaw correction
+    float yaw_error = get_yaw_error();
+    float yaw_rate = 0;
+
+    if (yaw_error > 0.5f) {
+        yaw_rate = calculate_yaw_rate(yaw_error);
+    }
+
     // call attitude controller
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
         bf_angles.x,
         bf_angles.y,
-        0
+        yaw_rate
     );
 }
 
