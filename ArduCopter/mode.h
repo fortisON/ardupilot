@@ -1235,12 +1235,10 @@ public:
     void run() override;
     
     void yaw_run();
+    void alt_run();
     void fly_run();
 
-    enum class State {
-        YAW,
-        FLY
-    };
+    enum class State { YAW, ALT, FLY };
 
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
@@ -1256,6 +1254,7 @@ protected:
 private:
 
     float normalize_angle_deg(float angle);
+    bool control_altitude();
 
 #ifdef AP_OPTICALFLOW_ENABLED
     void optflow_correction(Vector2f &target_angles);

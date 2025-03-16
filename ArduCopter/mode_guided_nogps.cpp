@@ -86,7 +86,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Optical flow filter samples
     // @Range: 0 255
     // @User: Standard
-    AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 15),
+    AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 50),
 #endif
 
     AP_GROUPEND
@@ -137,6 +137,25 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
+    switch (_state) {
+        case State::YAW:
+            yaw_run();
+            break;
+
+        case State::ALT:
+            alt_run();
+            break;
+
+        case State::FLY:
+            fly_run();
+            break;
+    }
+
+    // run the vertical position controller and set output throttle
+    pos_control->update_z_controller();
+}
+
+bool ModeGuidedNoGPS::control_altitude() {
     // Calculate the current altitude below home
     float curr_alt_below_home = 0.0f;
     copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
@@ -154,22 +173,13 @@ void ModeGuidedNoGPS::run()
 
     if (abs(target_alt_above_vehicle) > 0.5f) {
         pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+
+        return false;
     } else {
         pos_control->set_pos_target_z_from_climb_rate_cm(0);
+
+        return true;
     }
-
-    switch (_state) {
-        case State::YAW:
-            yaw_run();
-            break;
-
-        case State::FLY:
-            fly_run();
-            break;
-    }
-
-    // run the vertical position controller and set output throttle
-    pos_control->update_z_controller();
 }
 
 void ModeGuidedNoGPS::yaw_run()
@@ -178,7 +188,7 @@ void ModeGuidedNoGPS::yaw_run()
     float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
 
     // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
+    float target_yaw_rate = yaw_rate * 1000 * max(0.0f, min(1.0f, abs(yaw_error) / 20));
 
     if (yaw_error > 45 && target_yaw_rate > 0) {
         target_yaw_rate = -target_yaw_rate;
@@ -187,12 +197,56 @@ void ModeGuidedNoGPS::yaw_run()
     if (abs(yaw_error) > 0.5f) {
         copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, target_yaw_rate);
     } else {
+        copter.attitude_control->get_rate_yaw_pid().reset_filter();
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
+
+        _state = State::ALT;
+    }
+}
+
+void ModeGuidedNoGPS::alt_run()
+{
+    bool alt_reached = control_altitude();
+
+#if AP_OPTICALFLOW_ENABLED
+    static float flow_xy_p = -1.0f;
+
+    if (flow_xy_p < 0) {
+        flow_xy_p = flow_pi_xy.kP();
+
+        flow_pi_xy.kP(flow_xy_p * 3);
+    }
+
+    Vector2f bf_angles = Vector2f(0, 0);
+
+    optflow_correction(bf_angles);
+
+    bf_angles.x = constrain_float(bf_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
+    bf_angles.y = constrain_float(bf_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+
+    // call attitude controller
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
+        bf_angles.x,
+        bf_angles.y,
+        0
+    );
+#endif // AP_OPTICALFLOW_ENABLED
+
+    if (alt_reached) {
+#if AP_OPTICALFLOW_ENABLED
+        flow_pi_xy.kP(flow_xy_p);
+
+        flow_xy_p = -1.0f;
+#endif // AP_OPTICALFLOW_ENABLED
+
         _state = State::FLY;
     }
 }
 
 void ModeGuidedNoGPS::fly_run()
 {
+    control_altitude();
+
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
     float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
@@ -201,15 +255,14 @@ void ModeGuidedNoGPS::fly_run()
     Vector2f home_vector = Vector2f(sinf(body_to_home_azimuth), -cosf(body_to_home_azimuth));
     Vector2f bf_angles = Vector2f(home_vector.x, home_vector.y);
 
-    float angle_max = copter.aparm.angle_max;
-    bf_angles = bf_angles.normalized() * angle_max;
+    bf_angles = bf_angles.normalized() * copter.aparm.angle_max;
 
 #if AP_OPTICALFLOW_ENABLED
     optflow_correction(bf_angles);
 #endif // AP_OPTICALFLOW_ENABLED
 
-    bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
-    bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
+    bf_angles.x = constrain_float(bf_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
+    bf_angles.y = constrain_float(bf_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
 
     // call attitude controller
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
