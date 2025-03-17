@@ -171,7 +171,7 @@ bool ModeGuidedNoGPS::control_altitude() {
     target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
     target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
 
-    if (abs(target_alt_above_vehicle) > 0.5f) {
+    if (target_alt_above_vehicle > 0) {
         pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
 
         return false;
