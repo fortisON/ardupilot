@@ -126,6 +126,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 
     flow_samples_count = 0;
     flow_error.zero();
+    flow_error_buff.zero();
 #endif
 
     // Information message
@@ -209,14 +210,6 @@ void ModeGuidedNoGPS::alt_run()
     bool alt_reached = control_altitude();
 
 #if AP_OPTICALFLOW_ENABLED
-    static float flow_xy_p = -1.0f;
-
-    if (flow_xy_p < 0) {
-        flow_xy_p = flow_pi_xy.kP();
-
-        flow_pi_xy.kP(flow_xy_p * 3);
-    }
-
     Vector2f bf_angles = Vector2f(0, 0);
 
     optflow_correction(bf_angles);
@@ -233,13 +226,12 @@ void ModeGuidedNoGPS::alt_run()
 #endif // AP_OPTICALFLOW_ENABLED
 
     if (alt_reached) {
-#if AP_OPTICALFLOW_ENABLED
-        flow_pi_xy.kP(flow_xy_p);
-
-        flow_xy_p = -1.0f;
-#endif // AP_OPTICALFLOW_ENABLED
-
         _state = State::FLY;
+
+        // Reset optical flow error
+        flow_samples_count = 0;
+        flow_error.zero();
+        flow_error_buff.zero();
     }
 }
 
@@ -287,15 +279,28 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
         flow_samples_count++;
+        flow_error_buff += raw_flow;
 
-        // Subtract the previous error
-        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 25;
-        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 25;
-
-        if (flow_samples_count == flow_filter_samples) {
-            flow_samples_count = 0;
-            flow_error = flow_error_buff;
+        int ffs = flow_filter_samples;
+        
+        if (_state == State::ALT) {
+            ffs = 20;
         }
+
+        if (flow_samples_count == ffs) {
+            flow_error = flow_error_buff / ffs;
+            
+            if (_state == State::ALT) {
+                flow_error *= 0.2f;
+            } else {
+                flow_error *= 0.15f;
+            }
+
+            flow_samples_count = 0;
+            flow_error_buff.zero();
+        }
+
+        printf("Flow error: %f, %f\n", flow_error.x, flow_error.y);
 
         // limit sensor flow, this prevents oscillation at low altitudes
         flow_error.x = constrain_float(flow_error.x, -flow_max, flow_max);
@@ -348,6 +353,8 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
+
+        printf("Flow angles: %f, %f\n", flow_angles.x, flow_angles.y);
 
         target_angles.x += flow_angles.x + target_angles.x * flow_impact;
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
