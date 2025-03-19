@@ -172,7 +172,7 @@ void ModeGuidedNoGPS::run()
 
 bool ModeGuidedNoGPS::control_altitude() {
     // Calculate the current altitude below home
-    float curr_aModeGuidedNoGPSlt_below_home = 0.0f;
+    float curr_alt_below_home = 0.0f;
     copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
 
     // Calculate the target altitude above the vehicle
@@ -268,17 +268,12 @@ void ModeGuidedNoGPS::fly_run()
 
     // Maybe apply yaw correction
     float yaw_error = get_yaw_error();
-    float yaw_rate = 0;
-
-    if (yaw_error > 0.5f) {
-        yaw_rate = calculate_yaw_rate(yaw_error);
-    }
 
     // call attitude controller
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
         bf_angles.x,
         bf_angles.y,
-        yaw_rate
+        yaw_error > 0.5f ? calculate_yaw_rate(yaw_error) : 0
     );
 }
 
@@ -306,10 +301,10 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         }
 
         if (flow_samples_count == ffs) {
-            flow_error = flow_error_buff / ffs;
+            flow_error = flow_error_buff / ffs - flow_error;
             
             if (_state == State::ALT) {
-                flow_error *= 0.2f;
+                flow_error *= 0.8f;
             } else {
                 flow_error *= 0.15f;
             }
@@ -317,8 +312,6 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
             flow_samples_count = 0;
             flow_error_buff.zero();
         }
-
-        printf("Flow error: %f, %f\n", flow_error.x, flow_error.y);
 
         // limit sensor flow, this prevents oscillation at low altitudes
         flow_error.x = constrain_float(flow_error.x, -flow_max, flow_max);
@@ -371,8 +364,6 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
-
-        printf("Flow angles: %f, %f\n", flow_angles.x, flow_angles.y);
 
         target_angles.x += flow_angles.x + target_angles.x * flow_impact;
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
