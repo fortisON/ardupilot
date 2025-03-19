@@ -86,7 +86,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Optical flow filter samples
     // @Range: 0 255
     // @User: Standard
-    AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 15),
+    AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 50),
 #endif
 
     AP_GROUPEND
@@ -140,6 +140,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 
     flow_samples_count = 0;
     flow_error.zero();
+    flow_error_buff.zero();
 #endif
 
     // Information message
@@ -151,6 +152,25 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
+    switch (_state) {
+        case State::YAW:
+            yaw_run();
+            break;
+
+        case State::ALT:
+            alt_run();
+            break;
+
+        case State::FLY:
+            fly_run();
+            break;
+    }
+
+    // run the vertical position controller and set output throttle
+    pos_control->update_z_controller();
+}
+
+bool ModeGuidedNoGPS::control_altitude() {
     // Calculate the current altitude below home
     float curr_aModeGuidedNoGPSlt_below_home = 0.0f;
     copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
@@ -166,24 +186,15 @@ void ModeGuidedNoGPS::run()
     target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
     target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
 
-    if (abs(target_alt_above_vehicle) > 0.5f) {
+    if (target_alt_above_vehicle > 0) {
         pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+
+        return false;
     } else {
         pos_control->set_pos_target_z_from_climb_rate_cm(0);
+
+        return true;
     }
-
-    switch (_state) {
-        case State::YAW:
-            yaw_run();
-            break;
-
-        case State::FLY:
-            fly_run();
-            break;
-    }
-
-    // run the vertical position controller and set output throttle
-    pos_control->update_z_controller();
 }
 
 void ModeGuidedNoGPS::yaw_run()
@@ -197,12 +208,47 @@ void ModeGuidedNoGPS::yaw_run()
     if (abs(error) > 0.5f) {
         copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
     } else {
+        copter.attitude_control->get_rate_yaw_pid().reset_filter();
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
+
+        _state = State::ALT;
+    }
+}
+
+void ModeGuidedNoGPS::alt_run()
+{
+    bool alt_reached = control_altitude();
+
+#if AP_OPTICALFLOW_ENABLED
+    Vector2f bf_angles = Vector2f(0, 0);
+
+    optflow_correction(bf_angles);
+
+    bf_angles.x = constrain_float(bf_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
+    bf_angles.y = constrain_float(bf_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+
+    // call attitude controller
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
+        bf_angles.x,
+        bf_angles.y,
+        0
+    );
+#endif // AP_OPTICALFLOW_ENABLED
+
+    if (alt_reached) {
         _state = State::FLY;
+
+        // Reset optical flow error
+        flow_samples_count = 0;
+        flow_error.zero();
+        flow_error_buff.zero();
     }
 }
 
 void ModeGuidedNoGPS::fly_run()
 {
+    control_altitude();
+
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
     float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
@@ -211,15 +257,14 @@ void ModeGuidedNoGPS::fly_run()
     Vector2f home_vector = Vector2f(sinf(body_to_home_azimuth), -cosf(body_to_home_azimuth));
     Vector2f bf_angles = Vector2f(home_vector.x, home_vector.y);
 
-    float angle_max = copter.aparm.angle_max;
-    bf_angles = bf_angles.normalized() * angle_max;
+    bf_angles = bf_angles.normalized() * copter.aparm.angle_max;
 
 #if AP_OPTICALFLOW_ENABLED
     optflow_correction(bf_angles);
 #endif // AP_OPTICALFLOW_ENABLED
 
-    bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
-    bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
+    bf_angles.x = constrain_float(bf_angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
+    bf_angles.y = constrain_float(bf_angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
 
     // Maybe apply yaw correction
     float yaw_error = get_yaw_error();
@@ -252,15 +297,28 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
         flow_samples_count++;
+        flow_error_buff += raw_flow;
 
-        // Subtract the previous error
-        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 25;
-        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 25;
-
-        if (flow_samples_count == flow_filter_samples) {
-            flow_samples_count = 0;
-            flow_error = flow_error_buff;
+        int ffs = flow_filter_samples;
+        
+        if (_state == State::ALT) {
+            ffs = 20;
         }
+
+        if (flow_samples_count == ffs) {
+            flow_error = flow_error_buff / ffs;
+            
+            if (_state == State::ALT) {
+                flow_error *= 0.2f;
+            } else {
+                flow_error *= 0.15f;
+            }
+
+            flow_samples_count = 0;
+            flow_error_buff.zero();
+        }
+
+        printf("Flow error: %f, %f\n", flow_error.x, flow_error.y);
 
         // limit sensor flow, this prevents oscillation at low altitudes
         flow_error.x = constrain_float(flow_error.x, -flow_max, flow_max);
@@ -313,6 +371,8 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
+
+        printf("Flow angles: %f, %f\n", flow_angles.x, flow_angles.y);
 
         target_angles.x += flow_angles.x + target_angles.x * flow_impact;
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
