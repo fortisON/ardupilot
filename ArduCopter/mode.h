@@ -1279,6 +1279,7 @@ private:
     AP_Int8  flow_min_quality;
     AP_Float flow_impact;
     AP_Int8  flow_filter_samples;
+    AP_Float flow_error_multiplier;
     
     LowPassFilterConstDtVector2f flow_filter;
 

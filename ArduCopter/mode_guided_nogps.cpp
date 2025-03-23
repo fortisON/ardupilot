@@ -87,6 +87,13 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Range: 0 255
     // @User: Standard
     AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 50),
+
+    // @Param: _FLOW_ERMP
+    // @DisplayName: GuidedNoGPS Flow error multiplier
+    // @Description: Optical flow error multiplier
+    // @Range: 0.0 1.0
+    // @User: Standard
+    AP_GROUPINFO("_FLOW_ERMP", 9, ModeGuidedNoGPS, flow_error_multiplier, 0.1f),
 #endif
 
     AP_GROUPEND
@@ -102,13 +109,13 @@ float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
 }
 
 float ModeGuidedNoGPS::get_yaw_error() {
-    return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+    return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 180);
 }
 
 float ModeGuidedNoGPS::calculate_yaw_rate(float error) {
     float rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(error) / 20));
 
-    if (error > 45 && rate > 0) {
+    if (error > 90 && rate > 0) {
         rate = -rate;
     }
 
@@ -136,7 +143,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
 
     flow_pi_xy.reset_I();
-    flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz());
+    flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz()*flow_filter_samples);
 
     flow_samples_count = 0;
     flow_error.zero();
@@ -295,19 +302,12 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         flow_error_buff += raw_flow;
 
         int ffs = flow_filter_samples;
-        
-        if (_state == State::ALT) {
-            ffs = 20;
-        }
 
         if (flow_samples_count == ffs) {
-            flow_error = flow_error_buff / ffs - flow_error;
-            
-            if (_state == State::ALT) {
-                flow_error *= 0.8f;
-            } else {
-                flow_error *= 0.15f;
-            }
+            flow_error_buff /= ffs;
+            flow_error_buff *= flow_error_multiplier;
+
+            flow_error = flow_error_buff;
 
             flow_samples_count = 0;
             flow_error_buff.zero();
