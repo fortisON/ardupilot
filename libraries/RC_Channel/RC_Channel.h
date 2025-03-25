@@ -262,6 +262,7 @@ public:
         AUTOTUNE_TEST_GAINS = 180, // auto tune tuning switch to test or revert gains
         QUICKTUNE =          181,  //quicktune 3 position switch
         FORCE_LAND =         183,  //force land mode
+        REBOOT =             184,  // Reboot the board
 
 
         // inputs from 200 will eventually used to replace RCMAP

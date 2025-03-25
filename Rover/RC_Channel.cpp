@@ -52,10 +52,12 @@ void RC_Channel_Rover::init_aux_function(const AUX_FUNC ch_option, const AuxSwit
     case AUX_FUNC::SMART_RTL:
     case AUX_FUNC::STEERING:
     case AUX_FUNC::WIND_VANE_DIR_OFSSET:
+    case AUX_FUNC::REBOOT:
         break;
     case AUX_FUNC::SAILBOAT_MOTOR_3POS:
         do_aux_function_sailboat_motor_3pos(ch_flag);
         break;
+
     default:
         RC_Channel::init_aux_function(ch_option, ch_flag);
         break;
@@ -258,6 +260,12 @@ bool RC_Channel_Rover::do_aux_function(const AUX_FUNC ch_option, const AuxSwitch
     case AUX_FUNC::ROLL:
     case AUX_FUNC::WALKING_HEIGHT:
     case AUX_FUNC::WIND_VANE_DIR_OFSSET:
+        break;
+
+    case AUX_FUNC::REBOOT:
+        if (ch_flag == AuxSwitchPos::HIGH) {
+            AP::vehicle()->reboot(false);
+        }
         break;
 
     default:
