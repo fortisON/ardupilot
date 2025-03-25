@@ -152,7 +152,15 @@ void Rover::radio_failsafe_check(uint16_t pwm)
     bool failed = pwm < static_cast<uint16_t>(g.fs_throttle_value);
     if (AP_HAL::millis() - failsafe.last_valid_rc_ms > 500) {
         failed = true;
+
+        int time_elapsed = AP_HAL::millis() - failsafe.last_valid_rc_ms;
+        int reboot_timeout = g.fs_rc_reboot_timeout * 60000;
+
+        if (time_elapsed >= reboot_timeout) {
+            AP::vehicle()->reboot(false);
+        }
     }
+
     AP_Notify::flags.failsafe_radio = failed;
     failsafe_trigger(FAILSAFE_EVENT_THROTTLE, "Radio", failed);
 }
