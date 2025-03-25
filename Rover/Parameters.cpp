@@ -165,6 +165,15 @@ const AP_Param::Info Rover::var_info[] = {
     // @User: Advanced
     GSCALAR(fs_ekf_thresh, "FS_EKF_THRESH", 0.8f),
 
+    // @Param: FS_RC_RB_TIMEOUT
+    // @DisplayName: RC failsafe timeout to reboot
+    // @Description: Time in minutes after which autopilot will be automatically rebooted if RC signal is lost
+    // @Units: min
+    // @Range: 1 60
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(fs_rc_reboot_timeout, "FS_RC_RB_TIMEOUT", FS_RC_RB_TIMEOUT),
+
     // @Param: MODE_CH
     // @DisplayName: Mode channel
     // @Description: RC Channel to use for driving mode control

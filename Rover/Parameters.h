@@ -160,7 +160,8 @@ public:
         k_param_fs_gcs_enabled,
         k_param_fs_crash_check,
         k_param_fs_ekf_action,
-        k_param_fs_ekf_thresh,  // 187
+        k_param_fs_ekf_thresh,
+        k_param_fs_rc_reboot_timeout, // 188
 
         // obstacle control
         k_param_sonar_enabled = 190,  // deprecated, can be removed
@@ -268,6 +269,7 @@ public:
     AP_Int8     fs_crash_check;
     AP_Int8     fs_ekf_action;
     AP_Float    fs_ekf_thresh;
+    AP_Int8     fs_rc_reboot_timeout;
 
     // driving modes
     //
