@@ -156,7 +156,7 @@ void Rover::radio_failsafe_check(uint16_t pwm)
         int time_elapsed = AP_HAL::millis() - failsafe.last_valid_rc_ms;
         int reboot_timeout = g.fs_rc_reboot_timeout * 60000;
 
-        if (time_elapsed >= reboot_timeout) {
+        if (reboot_timeout > 0 && time_elapsed >= reboot_timeout) {
             AP::vehicle()->reboot(false);
         }
     }
