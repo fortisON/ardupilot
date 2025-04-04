@@ -633,6 +633,7 @@ private:
         DISABLE_YAW_IMBALANCE_WARNING = (1<<1),   // 2
         RELEASE_GRIPPER_ON_THRUST_LOSS = (1<<2),  // 4
         REQUIRE_POSITION_FOR_ARMING =   (1<<3),   // 8
+        DISABLE_THRUST_IMBALANCE_CHECK = (1<<4),  // 16
     };
 
     // type of fast rate attitude controller in operation
@@ -790,6 +791,7 @@ private:
     // crash_check.cpp
     void crash_check();
     void thrust_loss_check();
+    void thrust_imbalance_check();
     void yaw_imbalance_check();
     LowPassFilterFloat yaw_I_filt{0.05f};
     uint32_t last_yaw_warn_ms;
