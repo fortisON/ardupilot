@@ -238,7 +238,7 @@ void Copter::thrust_imbalance_check()
         mask = mask>>1;
     }
     
-    // reset counter if thrust balance goes back to norm
+    // reset counter if thrust balance goes back to normal
     if (min_thrust < FLT_EPSILON || max_thrust/min_thrust < THRUST_IMBALANCE_THRESHOLD) {
         thrust_imbalance_counter = 0;
         return;
