@@ -12,6 +12,11 @@
 #define THRUST_LOSS_CHECK_ANGLE_DEVIATION_CD  1500  // we can't expect to maintain altitude beyond 15 degrees on all aircraft
 #define THRUST_LOSS_CHECK_MINIMUM_THROTTLE    0.9f  // we can expect to maintain altitude above 90 % throttle
 
+// Thrust imbalance check
+#define THRUST_IMBALANCE_THRESHOLD 1.25f
+#define THRUST_IMBALANCE_TRIGGER_SEC 3
+#define THRUST_IMBALANCE_COLLDOWN_SEC 3
+
 // Yaw imbalance check
 #define YAW_IMBALANCE_IMAX_THRESHOLD 0.75f
 #define YAW_IMBALANCE_WARN_MS 10000
@@ -175,6 +180,81 @@ void Copter::thrust_loss_check()
             gripper.release();
         }
 #endif
+    }
+}
+
+// check for a large thrust imbalance, usually one engine that is about to fail
+void Copter::thrust_imbalance_check()
+{
+    static uint16_t thrust_imbalance_counter;  // number of iterations vehicle may have been crashed
+    static uint16_t cooldown_counter; // number of iterations before this alert will fire again
+    
+    // release cooldown on threshold
+    if (cooldown_counter >= (THRUST_IMBALANCE_COLLDOWN_SEC * scheduler.get_loop_rate_hz())) {
+        cooldown_counter = 0;
+    }
+    // increment colldown_counter while in cooldown state
+    if (cooldown_counter) {
+        cooldown_counter++;
+        return;
+    }
+    
+    // no-op if suppressed by flight options param
+    if (copter.option_is_enabled(FlightOption::DISABLE_THRUST_IMBALANCE_CHECK)) {
+        return;
+    }
+
+    // exit immediately if thrust boost is already engaged
+    if (motors->get_thrust_boost()) {
+        return;
+    }
+
+    // return immediately if disarmed
+    if (!motors->armed() || ap.land_complete) {
+        thrust_imbalance_counter = 0;
+        return;
+    }
+
+    // exit immediately if in standby
+    if (standby_active) {
+        return;
+    }
+
+    float min_thrust = FLT_MAX, max_thrust = FLT_MIN;
+    uint8_t motor_number = 0, failing_motor = 0;
+    uint32_t mask = motors->get_motor_mask();
+    while (mask != 0) {
+        if (mask & 1) {
+            float thrust;
+            if (motors->get_thrust(motor_number, thrust)) {
+                min_thrust = MIN(min_thrust, thrust);
+                max_thrust = MAX(max_thrust, thrust);
+                if (fabsf(max_thrust - thrust) < FLT_EPSILON) {
+                    failing_motor = motor_number + 1;
+                }
+            };
+            motor_number++;
+        }
+        mask = mask>>1;
+    }
+    
+    // reset counter if thrust balance goes back to normal
+    if (min_thrust < FLT_EPSILON || max_thrust/min_thrust < THRUST_IMBALANCE_THRESHOLD) {
+        thrust_imbalance_counter = 0;
+        return;
+    }
+    
+    thrust_imbalance_counter++;
+
+    // check if thrust imbalance for 3 second
+    if (thrust_imbalance_counter >= (THRUST_IMBALANCE_TRIGGER_SEC * scheduler.get_loop_rate_hz())) {
+        // reset counter
+        thrust_imbalance_counter = 0;
+        LOGGER_WRITE_ERROR(LogErrorSubsystem::THRUST_IMBALANCE_CHECK, LogErrorCode::UNHEALTHY);
+        // send message to gcs
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "Failing motor detected (%d)", failing_motor);
+        // start cooldown
+        cooldown_counter++;
     }
 }
 
