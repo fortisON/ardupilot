@@ -69,6 +69,10 @@ public:
         k_param_serial1_baud,   // deprecated, can be deleted
         k_param_serial2_baud,   // deprecated, can be deleted
 
+        // autoreboot
+        k_param_reboot_reason = 45,
+        k_param_reboot_time,
+
         // 97: RSSI
         k_param_rssi = 97,
         k_param_rpm_sensor,     // rpm sensor 98
@@ -160,8 +164,7 @@ public:
         k_param_fs_gcs_enabled,
         k_param_fs_crash_check,
         k_param_fs_ekf_action,
-        k_param_fs_ekf_thresh,
-        k_param_fs_rc_reboot_timeout, // 188
+        k_param_fs_ekf_thresh, // 188
 
         // obstacle control
         k_param_sonar_enabled = 190,  // deprecated, can be removed
@@ -241,6 +244,10 @@ public:
     AP_Int8     reset_switch_chan;
     AP_Int8     initial_mode;
 
+    // Autoreboot
+    AP_Int8     reboot_reason;
+    AP_Int16    reboot_time;
+
     // Telemetry control
     //
     AP_Int16    sysid_this_mav;
@@ -269,7 +276,6 @@ public:
     AP_Int8     fs_crash_check;
     AP_Int8     fs_ekf_action;
     AP_Float    fs_ekf_thresh;
-    AP_Int8     fs_rc_reboot_timeout;
 
     // driving modes
     //

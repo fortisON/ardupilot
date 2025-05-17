@@ -460,6 +460,23 @@ void Rover::one_second_loop(void)
     g2.pos_control.set_turn_params(g2.turn_radius, g2.motors.have_skid_steering());
     g2.wheel_rate_control.set_notch_sample_rate(AP::scheduler().get_filtered_loop_rate_hz());
 
+    // reboot the rover after specified time
+    if (g.reboot_reason == 0) {
+        uint32_t reboot_time = g.reboot_time * 60000;
+
+        if (reboot_time > 0) {
+            if (AP_HAL::millis() >= reboot_time) {
+                reboot(false);
+            }
+            
+            if (reboot_time >= 2 && (AP_HAL::millis() >= reboot_time - 60000 && AP_HAL::millis() <= reboot_time - 55000)) {
+                SRV_Channels::set_output_pwm_chan(4, 1900);
+            } else {
+                SRV_Channels::set_output_pwm_chan(4, 1100);
+            }
+        }
+    }
+
 #if AP_STATS_ENABLED
     // Update stats "flying" time
     AP::stats()->set_flying(g2.motors.active());

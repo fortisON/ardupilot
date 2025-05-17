@@ -76,6 +76,10 @@
   #define AP_ROVER_ADVANCED_FAILSAFE_ENABLED 0
 #endif
 
-#ifndef FS_RC_RB_TIMEOUT
-  #define FS_RC_RB_TIMEOUT 15
+#ifndef REBOOT_REASON
+  #define REBOOT_REASON 0
+#endif
+
+#ifndef REBOOT_TIME
+  #define REBOOT_TIME 15
 #endif

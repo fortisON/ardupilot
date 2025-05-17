@@ -230,6 +230,8 @@ private:
     static const LogStructure log_structure[];
 #endif
 
+    int boot_time = 0;
+
     // time that rudder/steering arming has been running
     uint32_t rudder_arm_timer;
 
