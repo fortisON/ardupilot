@@ -469,6 +469,7 @@ class ModeAltHold : public Mode {
 public:
     // inherit constructor
     using Mode::Mode;
+    ModeAltHold(void);
     Number mode_number() const override { return Number::ALT_HOLD; }
 
     bool init(bool ignore_checks) override;
@@ -483,6 +484,7 @@ public:
     }
     bool allows_autotune() const override { return true; }
     bool allows_flip() const override { return true; }
+    static const struct AP_Param::GroupInfo var_info[];
 #if FRAME_CONFIG == HELI_FRAME
     bool allows_inverted() const override { return true; };
 #endif
@@ -492,6 +494,9 @@ protected:
     const char *name4() const override { return "ALTH"; }
 
 private:
+
+    AC_PI_2D rasp_pi_xy{0.2f, 0.3f, 3000, 0.0025f, 5};
+    AP_Int8 rasp_enabled;
 
 };
 

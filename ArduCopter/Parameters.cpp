@@ -750,6 +750,10 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("WP_NAVALT_MIN", 1, ParametersG2, wp_navalt_min, 0),
 
+    // @Group: ALTH
+    // @Path: mode_althold.cpp
+    AP_SUBGROUPPTR(mode_althold_ptr, "ALTH", 62, ParametersG2, ModeAltHold),
+
 #if HAL_BUTTON_ENABLED
     // @Group: BTN_
     // @Path: ../libraries/AP_Button/AP_Button.cpp
@@ -1272,6 +1276,7 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
  */
 ParametersG2::ParametersG2(void) :
     unused_integer{17}
+,mode_althold_ptr(&copter.mode_althold)
 #if HAL_BUTTON_ENABLED
     ,button_ptr(&copter.button)
 #endif

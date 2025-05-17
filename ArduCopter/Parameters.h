@@ -509,6 +509,8 @@ public:
     // the face of many #ifs:
     uint8_t unused_integer;
 
+    void *mode_althold_ptr;
+
     // button checking
 #if HAL_BUTTON_ENABLED
     AP_Button *button_ptr;

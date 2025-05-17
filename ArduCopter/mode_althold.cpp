@@ -5,6 +5,49 @@
  * Init and run calls for althold, flight mode
  */
 
+const AP_Param::GroupInfo ModeAltHold::var_info[] = {
+    // PI controller parameter group for rasphold
+    // @Group: RaspHold
+    // @Path: RaspHold
+
+    // @Param: _RSPH_XY_P
+    // @DisplayName: RaspHold P gain
+    // @Description: Horizontal P gain for RaspHold controller
+    // @Range: 0.1 6.0
+    // @Increment: 0.1
+    // @User: Advanced
+
+    // @Param: _RSPH_XY_I
+    // @DisplayName: RaspHold I gain
+    // @Description: Horizontal I gain for RaspHold controller
+    // @Range: 0.02 1.0
+    // @Increment: 0.01
+    // @User: Advanced
+
+    // @Param: _RSPH_XY_IMAX
+    // @DisplayName: RaspHold Integrator Max
+    // @Description: Max integrator value for RaspHold
+    // @Range: 0 4500
+    // @Increment: 10
+    // @Units: cdeg
+    // @User: Advanced
+    AP_SUBGROUPINFO(rasp_pi_xy, "_RSPH_XY_", 1, ModeAltHold, AC_PI_2D),
+
+    // @Param: _RSPH_ENABLED
+    // @DisplayName: RaspHold Enabled
+    // @Description: Enable or disable RaspHold logic (1 = enabled)
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Standard
+    AP_GROUPINFO("_RSPH_ENABLED", 2, ModeAltHold, rasp_enabled, 0),
+
+    AP_GROUPEND
+};
+
+ModeAltHold::ModeAltHold() : Mode()
+{
+    AP_Param::setup_object_defaults(this, var_info);
+}
+
 // althold_init - initialise althold controller
 bool ModeAltHold::init(bool ignore_checks)
 {
