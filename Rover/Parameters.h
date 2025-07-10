@@ -69,9 +69,16 @@ public:
         k_param_serial1_baud,   // deprecated, can be deleted
         k_param_serial2_baud,   // deprecated, can be deleted
 
-        // autoreboot
-        k_param_reboot_reason = 45,
+        // 45: Autoreboot
+        k_param_reboot_enabled = 45,
+        k_param_reboot_relay_servo_out,
+        k_param_reboot_reason,
         k_param_reboot_time,
+
+        // 50: Handbrake
+        k_param_handbrake_enabled = 50, // whether handbrake is enabled
+        k_param_handbrake_servo_out, // servo output channel to use for handbrake control
+        k_param_handbrake_trigger_angle, // angle in degrees to trigger handbrake
 
         // 97: RSSI
         k_param_rssi = 97,
@@ -245,8 +252,15 @@ public:
     AP_Int8     initial_mode;
 
     // Autoreboot
+    AP_Int8     reboot_enabled;
+    AP_Int8     reboot_relay_servo_out;
     AP_Int8     reboot_reason;
     AP_Int16    reboot_time;
+
+    // Handbrake
+    AP_Int8     handbrake_enabled;
+    AP_Int8     handbrake_servo_out;
+    AP_Float    handbrake_trigger_angle;
 
     // Telemetry control
     //

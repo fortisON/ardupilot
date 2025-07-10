@@ -132,6 +132,11 @@ bool AP_Arming_Rover::arm(AP_Arming::Method method, const bool do_arming_checks)
     // save home heading for use in sail vehicles
     rover.g2.windvane.record_home_heading();
 
+    // Release the handbrake
+    if (g.handbrake_enabled == 1 && g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 900);
+    }
+
     update_soft_armed();
 
     send_arm_disarm_statustext("Throttle armed");
@@ -150,6 +155,11 @@ bool AP_Arming_Rover::disarm(const AP_Arming::Method method, bool do_disarm_chec
     if (rover.control_mode != &rover.mode_auto) {
         // reset the mission on disarm if we are not in auto
         rover.mode_auto.mission.reset();
+    }
+
+    // Tighten the handbrake
+    if (g.handbrake_enabled == 1 && g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 2000);
     }
 
     update_soft_armed();
