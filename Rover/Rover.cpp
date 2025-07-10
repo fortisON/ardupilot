@@ -161,6 +161,7 @@ Rover::Rover(void) :
         // set handbrake servo to 900us (released)
         SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 2000);
     }
+}
 
 #if AP_SCRIPTING_ENABLED || AP_EXTERNAL_CONTROL_ENABLED
 // set target location (for use by external control and scripting)

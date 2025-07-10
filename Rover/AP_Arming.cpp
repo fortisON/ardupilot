@@ -133,8 +133,8 @@ bool AP_Arming_Rover::arm(AP_Arming::Method method, const bool do_arming_checks)
     rover.g2.windvane.record_home_heading();
 
     // Release the handbrake
-    if (g.handbrake_enabled == 1 && g.handbrake_servo_out > 0) {
-        SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 900);
+    if (rover.g.handbrake_enabled == 1 && rover.g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(rover.g.handbrake_servo_out - 1, 900);
     }
 
     update_soft_armed();
@@ -158,8 +158,8 @@ bool AP_Arming_Rover::disarm(const AP_Arming::Method method, bool do_disarm_chec
     }
 
     // Tighten the handbrake
-    if (g.handbrake_enabled == 1 && g.handbrake_servo_out > 0) {
-        SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 2000);
+    if (rover.g.handbrake_enabled == 1 && rover.g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(rover.g.handbrake_servo_out - 1, 2000);
     }
 
     update_soft_armed();
