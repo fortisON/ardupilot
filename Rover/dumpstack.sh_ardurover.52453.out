@@ -1,0 +1,85 @@
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libbrotlidec.so.1
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libcap.so.2
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libbrotlicommon.so.1
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f86ea46d7a7 in __GI___wait4 (pid=52455, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0, usage=usage@entry=0x0) at ../sysdeps/unix/sysv/linux/wait4.c:30
+
+warning: 30	../sysdeps/unix/sysv/linux/wait4.c: No such file or directory
+#0  0x00007f86ea46d7a7 in __GI___wait4 (pid=52455, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0, usage=usage@entry=0x0) at ../sysdeps/unix/sysv/linux/wait4.c:30
+        sc_ret = -512
+        sc_ret = <optimized out>
+#1  0x00007f86ea46d8eb in __GI___waitpid (pid=<optimized out>, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0) at ./posix/waitpid.c:38
+No locals.
+#2  0x00007f86ea3b55bb in do_system (line=<optimized out>) at ../sysdeps/posix/system.c:172
+        __result = <optimized out>
+        _cleanup_start_doit = true
+        _buffer = {__routine = 0x7f86ea3b5640 <cancel_handler>, __arg = 0x7ffff4eb6560, __canceltype = 0, __prev = 0x0}
+        _cleanup_routine = 0x7f86ea3b5640 <cancel_handler>
+        cancel_args = {quit = 0x7f86ea562500 <quit>, intr = 0x7f86ea5625a0 <intr>, pid = 52455}
+        status = -1
+        ret = 0
+        pid = 52455
+        sa = {__sigaction_handler = {sa_handler = 0x1, sa_sigaction = 0x1}, sa_mask = {__val = {65536, 140737302456336, 140217432180547, 3689912859952676864, 140737302456112, 94420235313939, 140737302456768, 50, 22, 140737302456144, 140737302456144, 140737302456272, 87, 140733193388036, 140217433855200, 4208453775904372050}}, sa_flags = 0, sa_restorer = 0x7263732f736c6f6f}
+        omask = {__val = {0, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 140217432344949, 140217433855200, 140217433845472, 87, 140737302456144}}
+        reset = {__val = {6, 140217432345562, 9196350441231745024, 87, 9196350441231745024, 140737302456096, 87, 140217433845808, 140737302456096, 140217433855200, 140737302456032, 140217432136847, 9196350441231745024, 94420235313895, 140737302456352, 94420235313895}}
+        spawn_attr = {__flags = 12, __pgrp = 0, __sd = {__val = {6, 140217432345562, 9196350441231745024, 87, 9196350441231745024, 140737302456096, 87, 140217433845808, 140737302456096, 140217433855200, 140737302456032, 140217432136847, 9196350441231745024, 94420235313895, 140737302456352, 94420235313895}}, __ss = {__val = {0, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 140217432344949, 140217433855200, 140217433845472, 87, 140737302456144}}, __sp = {sched_priority = 0}, __policy = 0, __cgroup = 0, __pad = {0 <repeats 15 times>}}
+#3  0x000055dfec85717c in AP_HAL::run_command_on_ownpid(char const*) ()
+No symbol table info available.
+#4  0x000055dfec857495 in AP_HAL::panic(char const*, ...) ()
+No symbol table info available.
+#5  0x000055dfec75b7ff in AP_Param::check_var_info() ()
+No symbol table info available.
+#6  0x000055dfec774d44 in AP_Vehicle::setup() ()
+No symbol table info available.
+#7  0x000055dfec850b06 in HAL_SITL::run(int, char* const*, AP_HAL::HAL::Callbacks*) const ()
+No symbol table info available.
+#8  0x000055dfec6b1ff4 in main ()
+No symbol table info available.
+
+Thread 1 (Thread 0x7f86e9f4f780 (LWP 52453) "ardurover"):
+#0  0x00007f86ea46d7a7 in __GI___wait4 (pid=52455, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0, usage=usage@entry=0x0) at ../sysdeps/unix/sysv/linux/wait4.c:30
+        sc_ret = -512
+        sc_ret = <optimized out>
+#1  0x00007f86ea46d8eb in __GI___waitpid (pid=<optimized out>, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0) at ./posix/waitpid.c:38
+No locals.
+#2  0x00007f86ea3b55bb in do_system (line=<optimized out>) at ../sysdeps/posix/system.c:172
+        __result = <optimized out>
+        _cleanup_start_doit = true
+        _buffer = {__routine = 0x7f86ea3b5640 <cancel_handler>, __arg = 0x7ffff4eb6560, __canceltype = 0, __prev = 0x0}
+        _cleanup_routine = 0x7f86ea3b5640 <cancel_handler>
+        cancel_args = {quit = 0x7f86ea562500 <quit>, intr = 0x7f86ea5625a0 <intr>, pid = 52455}
+        status = -1
+        ret = 0
+        pid = 52455
+        sa = {__sigaction_handler = {sa_handler = 0x1, sa_sigaction = 0x1}, sa_mask = {__val = {65536, 140737302456336, 140217432180547, 3689912859952676864, 140737302456112, 94420235313939, 140737302456768, 50, 22, 140737302456144, 140737302456144, 140737302456272, 87, 140733193388036, 140217433855200, 4208453775904372050}}, sa_flags = 0, sa_restorer = 0x7263732f736c6f6f}
+        omask = {__val = {0, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 140217432344949, 140217433855200, 140217433845472, 87, 140737302456144}}
+        reset = {__val = {6, 140217432345562, 9196350441231745024, 87, 9196350441231745024, 140737302456096, 87, 140217433845808, 140737302456096, 140217433855200, 140737302456032, 140217432136847, 9196350441231745024, 94420235313895, 140737302456352, 94420235313895}}
+        spawn_attr = {__flags = 12, __pgrp = 0, __sd = {__val = {6, 140217432345562, 9196350441231745024, 87, 9196350441231745024, 140737302456096, 87, 140217433845808, 140737302456096, 140217433855200, 140737302456032, 140217432136847, 9196350441231745024, 94420235313895, 140737302456352, 94420235313895}}, __ss = {__val = {0, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 9196350441231745024, 140217432344949, 140217433855200, 140217433845472, 87, 140737302456144}}, __sp = {sched_priority = 0}, __policy = 0, __cgroup = 0, __pad = {0 <repeats 15 times>}}
+#3  0x000055dfec85717c in AP_HAL::run_command_on_ownpid(char const*) ()
+No symbol table info available.
+#4  0x000055dfec857495 in AP_HAL::panic(char const*, ...) ()
+No symbol table info available.
+#5  0x000055dfec75b7ff in AP_Param::check_var_info() ()
+No symbol table info available.
+#6  0x000055dfec774d44 in AP_Vehicle::setup() ()
+No symbol table info available.
+#7  0x000055dfec850b06 in HAL_SITL::run(int, char* const*, AP_HAL::HAL::Callbacks*) const ()
+No symbol table info available.
+#8  0x000055dfec6b1ff4 in main ()
+No symbol table info available.
+A debugging session is active.
+
+	Inferior 1 [process 52453] will be detached.
+
+Quit anyway? (y or n) [answered Y; input not from terminal]
+[Inferior 1 (process 52453) detached]

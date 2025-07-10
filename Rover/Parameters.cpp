@@ -170,7 +170,7 @@ const AP_Param::Info Rover::var_info[] = {
     // @Description: Enable automatic reboot of the autopilot. When enabled the autopilot will be automatically rebooted after REBOOT_TIME minutes.
     // @Values: 0:Disabled,1:Enabled
     // @User: Advanced
-    GSCALAR(handbrake_enabled, "REBOOT_ENABLED", 1),
+    GSCALAR(reboot_enabled, "REBOOT_ENABLED", 1),
 
     // @Param: REBOOT_SERVO_OUT
     // @DisplayName: Handbrake servo output

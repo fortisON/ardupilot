@@ -1,0 +1,24 @@
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libbrotlidec.so.1
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libcap.so.2
+
+warning: could not find '.gnu_debugaltlink' file for /lib/x86_64-linux-gnu/libbrotlicommon.so.1
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f86ea46d7a7 in __GI___wait4 (pid=52472, stat_loc=stat_loc@entry=0x7ffff4eb6558, options=options@entry=0, usage=usage@entry=0x0) at ../sysdeps/unix/sysv/linux/wait4.c:30
+
+warning: 30	../sysdeps/unix/sysv/linux/wait4.c: No such file or directory
+Saved corefile ap-52473.core
+A debugging session is active.
+
+	Inferior 1 [process 52453] will be detached.
+
+Quit anyway? (y or n) [answered Y; input not from terminal]
+[Inferior 1 (process 52453) detached]
