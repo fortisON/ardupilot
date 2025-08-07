@@ -29,7 +29,6 @@ void Copter::update_land_and_crash_detectors()
 
     crash_check();
     thrust_loss_check();
-    thrust_imbalance_check();
     yaw_imbalance_check();
 }
 
