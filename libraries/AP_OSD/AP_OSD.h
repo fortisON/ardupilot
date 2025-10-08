@@ -232,6 +232,8 @@ private:
     AP_OSD_Setting hgt_abvterr{false, 23, 7};
     AP_OSD_Setting fence{false, 14, 9};
     AP_OSD_Setting rngf;
+    AP_OSD_Setting home_yaw{false, 14, 11};
+    AP_OSD_Setting rtl_alt{false, 14, 11};
 #if HAL_PLUSCODE_ENABLE
     AP_OSD_Setting pluscode;
 #endif
@@ -338,6 +340,9 @@ private:
 #if AP_RANGEFINDER_ENABLED
     void draw_rngf(uint8_t x, uint8_t y);
 #endif
+
+    void draw_home_yaw(uint8_t x, uint8_t y);
+    void draw_rtl_alt(uint8_t x, uint8_t y);
 
 #if AP_OSD_EXTENDED_LNK_STATS
     // Extended link stats data panels

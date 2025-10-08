@@ -366,10 +366,6 @@ void Copter::failsafe_deadreckon_check()
         if (!home.is_zero() && !current_location.is_zero()) {
             copter.azimuth_to_home = current_location.get_bearing(home) * (180.0 / M_PI);
         }
-
-        if (failsafe.radio && flightmode->mode_number() == Mode::Number::GUIDED_NOGPS) {
-            set_mode_RTL_or_land_with_pause(ModeReason::EKF_FAILSAFE_RECOVERY);
-        }
     }
 #endif
 

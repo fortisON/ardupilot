@@ -577,6 +577,9 @@ void Copter::rc_loop()
     // Read radio and 3-position switch on radio
     // -----------------------------------------
     read_radio();
+#if MODE_GUIDED_NOGPS_ENABLED
+    mode_guided_nogps.read_rc();
+#endif
     rc().read_mode_switch();
 }
 
@@ -820,6 +823,17 @@ void Copter::one_hz_loop()
         } else {
             AP_BoardConfig::allocation_error("rate thread");
         }
+    }
+#endif
+
+#if MODE_GUIDED_NOGPS_ENABLED
+    // Check if radio failsafe is on and HDOP is good enough for switching to RTL mode
+    if (
+        failsafe.radio
+        && flightmode->mode_number() == Mode::Number::GUIDED_NOGPS
+        && AP::gps().get_hdop() <= copter.g.gps_hdop_good
+    ) {
+        set_mode_RTL_or_land_with_pause(ModeReason::EKF_FAILSAFE_RECOVERY);
     }
 #endif
 }

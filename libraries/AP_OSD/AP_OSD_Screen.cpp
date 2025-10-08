@@ -1011,6 +1011,22 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info[] = {
     // @Range: 0 21
     AP_SUBGROUPINFO(rngf, "RNGF", 60, AP_OSD_Screen, AP_OSD_Setting),
 
+    // @Param: HOMEYAW_EN
+    // @DisplayName: HOMEYAW_EN
+    // @Description: Displays home yaw angle
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: HOMEYAW_X
+    // @DisplayName: HOMEYAW_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: HOMEYAW_Y
+    // @DisplayName: HOMEYAW_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(home_yaw, "HOMEYAW", 63, AP_OSD_Screen, AP_OSD_Setting),
+
     // @Param: ACRVOLT_EN
     // @DisplayName: ACRVOLT_EN
     // @Description: Displays resting voltage for the average cell. WARNING: this can be inaccurate if the cell count is not detected or set properly. If the  the battery is far from fully charged the detected cell count might not be accurate if auto cell count detection is used (OSD_CELL_COUNT=0).
@@ -1173,6 +1189,22 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info2[] = {
     // @Range: 0 32
     AP_GROUPINFO("ESC_IDX", 10, AP_OSD_Screen, esc_index, 0),
 #endif
+
+    // @Param: RTLALT_EN
+    // @DisplayName: RTLALT_EN
+    // @Description: Displays RTL altitude
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: RTLALT_X
+    // @DisplayName: RTLALT_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: RTLALT_Y
+    // @DisplayName: RTLALT_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(rtl_alt, "RTLALT", 11, AP_OSD_Screen, AP_OSD_Setting),
 
     AP_GROUPEND
 };
@@ -2550,6 +2582,26 @@ void AP_OSD_Screen::draw_rngf(uint8_t x, uint8_t y)
 }
 #endif
 
+void AP_OSD_Screen::draw_home_yaw(uint8_t x, uint8_t y)
+{
+    float yaw = 0.0f;
+    AP_Param::get("dr_home_yaw", yaw);
+
+    backend->write(x, y, false, "HOMEYAW:%3d%c", (int)yaw, SYMBOL(SYM_DEGR));
+}
+
+void AP_OSD_Screen::draw_rtl_alt(uint8_t x, uint8_t y)
+{
+    float alt = 0.0f;
+    AP_Param::get("rtl_alt", alt);
+
+    if (alt > 0) {
+        alt = u_scale(ALTITUDE, alt / 100.0f); // convert cm to m
+    }
+
+    backend->write(x, y, false, "RTLALT:%3d%c", (int)alt, SYMBOL(SYM_M));
+}
+
 #define DRAW_SETTING(n) if (n.enabled) draw_ ## n(n.xpos, n.ypos)
 
 #if HAL_WITH_OSD_BITMAP || HAL_WITH_MSP_DISPLAYPORT
@@ -2649,6 +2701,9 @@ void AP_OSD_Screen::draw(void)
     DRAW_SETTING(rc_active_antenna);
     DRAW_SETTING(rc_lq);
 #endif
+
+    DRAW_SETTING(home_yaw);
+    DRAW_SETTING(rtl_alt);
 }
 #endif
 #endif // OSD_ENABLED

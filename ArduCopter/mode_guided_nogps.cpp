@@ -89,6 +89,20 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 15),
 #endif
 
+    // @Param: _HOME_YAW_CH
+    // @DisplayName: GuidedNoGPS home yaw source channel
+    // @Description: Home yaw source channel for HOME state
+    // @Range: 0 16
+    // @User: Standard
+    AP_GROUPINFO("_HOME_YAW_CH", 9, ModeGuidedNoGPS, home_yaw_channel, 13),
+
+    // @Param: _ALT_CH
+    // @DisplayName: GuidedNoGPS Altitude Channel
+    // @Description: Altitude source channel
+    // @Range: 0 16
+    // @User: Standard
+    AP_GROUPINFO("_ALT_CH", 10, ModeGuidedNoGPS, altitude_channel, 14),
+
     AP_GROUPEND
 };
 
@@ -99,6 +113,37 @@ ModeGuidedNoGPS::ModeGuidedNoGPS(void) : ModeGuided()
 
 float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
+}
+
+void ModeGuidedNoGPS::read_rc()
+{
+    if (!rc().has_valid_input()) {
+        return;
+    }
+
+    // Home yaw
+    uint8_t home_yaw_ch = home_yaw_channel.get();
+    if (home_yaw_ch > 0) {
+        RC_Channel* channel = RC_Channels::rc_channel(home_yaw_ch - 1);
+        if (channel == nullptr) {
+            return;
+        }
+
+        const uint16_t yaw = 360.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
+        AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", yaw);
+    }
+
+    // Altitude
+    uint8_t alt_ch = altitude_channel.get();
+    if (alt_ch > 0) {
+        RC_Channel* channel = RC_Channels::rc_channel(alt_ch - 1);
+        if (channel == nullptr) {
+            return;
+        }
+
+        const uint16_t altitude = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
+        AP_Param::set_and_save_by_name_ifchanged("rtl_alt", altitude * 100);
+    }
 }
 
 // Initialize the guided_nogps controller

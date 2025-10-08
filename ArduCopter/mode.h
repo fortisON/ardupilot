@@ -1233,6 +1233,8 @@ public:
 
     bool init(bool ignore_checks) override;
     void run() override;
+
+    void read_rc();
     
     void yaw_run();
     void fly_run();
@@ -1261,6 +1263,8 @@ private:
     void optflow_correction(Vector2f &target_angles);
 #endif
 
+    AP_Int8  home_yaw_channel;
+    AP_Int8  altitude_channel;
     AP_Float yaw_rate;
     AP_Int8  climb_rate;
 
