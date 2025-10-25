@@ -1235,14 +1235,8 @@ public:
     void run() override;
 
     void read_rc();
-    
-    void yaw_run();
-    void fly_run();
 
-    enum class State {
-        YAW,
-        FLY
-    };
+    enum class State { YAW, ALT, FLY };
 
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
@@ -1259,9 +1253,18 @@ private:
 
     float normalize_angle_deg(float angle);
 
+    bool adjust_altitude();
+
+    float get_yaw_error();
+    float get_yaw_rate(float yaw_error);
+
 #ifdef AP_OPTICALFLOW_ENABLED
     void optflow_correction(Vector2f &target_angles);
 #endif
+
+    void yaw_run();
+    void alt_run();
+    void fly_run();
 
     AP_Int8  home_yaw_channel;
     AP_Int8  altitude_channel;

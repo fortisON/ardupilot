@@ -12,7 +12,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Yaw rate for YAW state (in degrees per second)
     // @Range: 0.0 10.0
     // @User: Standard
-    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 3),
+    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 1),
 
     // @Param: _CLMB_RATE
     // @DisplayName: GuidedNoGPS climb rate
@@ -25,14 +25,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Param: _XY_P
     // @DisplayName: GuidedNoGPS P gain
     // @Description: GuidedNoGPS (horizontal) P gain.
-    // @Range: 0.1 6.0
-    // @Increment: 0.1
+    // @Range: 0.01 6.0
+    // @Increment: 0.01
     // @User: Advanced
 
     // @Param: _XY_I
     // @DisplayName: GuidedNoGPS I gain
     // @Description: GuidedNoGPS (horizontal) I gain
-    // @Range: 0.02 1.00
+    // @Range: 0.01 1.00
     // @Increment: 0.01
     // @User: Advanced
 
@@ -94,14 +94,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Home yaw source channel for HOME state
     // @Range: 0 16
     // @User: Standard
-    AP_GROUPINFO("_HOME_YAW_CH", 9, ModeGuidedNoGPS, home_yaw_channel, 13),
+    AP_GROUPINFO("_HOME_YAW_CH", 9, ModeGuidedNoGPS, home_yaw_channel, 0),
 
     // @Param: _ALT_CH
     // @DisplayName: GuidedNoGPS Altitude Channel
     // @Description: Altitude source channel
     // @Range: 0 16
     // @User: Standard
-    AP_GROUPINFO("_ALT_CH", 10, ModeGuidedNoGPS, altitude_channel, 14),
+    AP_GROUPINFO("_ALT_CH", 10, ModeGuidedNoGPS, altitude_channel, 0),
 
     AP_GROUPEND
 };
@@ -111,8 +111,26 @@ ModeGuidedNoGPS::ModeGuidedNoGPS(void) : ModeGuided()
     AP_Param::setup_object_defaults(this, var_info);
 }
 
-float ModeGuidedNoGPS::normalize_angle_deg(float angle) {
+float ModeGuidedNoGPS::normalize_angle_deg(float angle)
+{
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
+}
+
+float ModeGuidedNoGPS::get_yaw_error()
+{
+    return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 180);
+}
+
+float ModeGuidedNoGPS::get_yaw_rate(float yaw_error)
+{
+    // Calculate the yaw rate
+    float target_yaw_rate = yaw_rate * 1000;
+
+    if (yaw_error > 45 && target_yaw_rate > 0) {
+        target_yaw_rate = -target_yaw_rate;
+    }
+
+    return target_yaw_rate;
 }
 
 void ModeGuidedNoGPS::read_rc()
@@ -144,6 +162,33 @@ void ModeGuidedNoGPS::read_rc()
         const uint16_t altitude = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
         AP_Param::set_and_save_by_name_ifchanged("rtl_alt", altitude * 100);
     }
+}
+
+bool ModeGuidedNoGPS::adjust_altitude()
+{
+    // Calculate the current altitude below home
+    float curr_alt_below_home = 0.0f;
+    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
+
+    // Calculate the target altitude above the vehicle
+    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
+
+    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+
+    float target_climb_rate = 0;
+
+    if (target_alt_above_vehicle > 0.5f) {
+        target_climb_rate = constrain_float(climb_rate * 100, -get_pilot_speed_dn(), g.pilot_speed_up);
+        target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
+    }
+
+    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+
+    if (target_climb_rate > 0) {
+        return false;
+    }
+
+    return true;
 }
 
 // Initialize the guided_nogps controller
@@ -182,30 +227,13 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 // Run the guided_nogps controller logic
 void ModeGuidedNoGPS::run()
 {
-    // Calculate the current altitude below home
-    float curr_alt_below_home = 0.0f;
-    copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
-
-    // Calculate the target altitude above the vehicle
-    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
-
-    copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
-    
-    // Climb rate control
-    float target_climb_rate = target_alt_above_vehicle > 0 ? climb_rate * 100 : -climb_rate * 100;
-
-    target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
-    target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
-
-    if (abs(target_alt_above_vehicle) > 0.5f) {
-        pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
-    } else {
-        pos_control->set_pos_target_z_from_climb_rate_cm(0);
-    }
-
     switch (_state) {
         case State::YAW:
             yaw_run();
+            break;
+
+        case State::ALT:
+            alt_run();
             break;
 
         case State::FLY:
@@ -220,24 +248,37 @@ void ModeGuidedNoGPS::run()
 void ModeGuidedNoGPS::yaw_run()
 {
     // Calculate the yaw error
-    float yaw_error = fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 90);
+    float error = get_yaw_error();
+    float rate = get_yaw_rate(error);
 
-    // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
-
-    if (yaw_error > 45 && target_yaw_rate > 0) {
-        target_yaw_rate = -target_yaw_rate;
+    if (abs(error) < 5.0f) {
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
+        _state = State::ALT;
+        return;
     }
 
-    if (abs(yaw_error) > 0.5f) {
-        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, target_yaw_rate);
-    } else {
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
+}
+
+void ModeGuidedNoGPS::alt_run()
+{
+    Vector2f angles = Vector2f(0, 0);
+    
+#if AP_OPTICALFLOW_ENABLED
+    optflow_correction(angles);
+#endif // AP_OPTICALFLOW_ENABLED
+
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(angles.x, angles.y, 0);
+    
+    if(adjust_altitude()) {
         _state = State::FLY;
     }
 }
 
 void ModeGuidedNoGPS::fly_run()
 {
+    pos_control->set_pos_target_z_from_climb_rate_cm(0);
+
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
     float body_to_home_azimuth = radians(home_yaw + (-current_yaw));
@@ -257,11 +298,7 @@ void ModeGuidedNoGPS::fly_run()
     bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
 
     // call attitude controller
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
-        bf_angles.x,
-        bf_angles.y,
-        0
-    );
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(bf_angles.x, bf_angles.y, 0);
 }
 
 #if AP_OPTICALFLOW_ENABLED
