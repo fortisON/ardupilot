@@ -1252,11 +1252,10 @@ protected:
 private:
 
     float normalize_angle_deg(float angle);
-
-    bool adjust_altitude();
-
     float get_yaw_error();
-    float get_yaw_rate(float yaw_error);
+    float get_target_yaw_rate(float yaw_error);
+    
+    bool adjust_altitude();
 
 #ifdef AP_OPTICALFLOW_ENABLED
     void optflow_correction(Vector2f &target_angles);
@@ -1266,17 +1265,16 @@ private:
     void alt_run();
     void fly_run();
 
-    AP_Int8  home_yaw_channel;
-    AP_Int8  altitude_channel;
     AP_Float yaw_rate;
     AP_Int8  climb_rate;
+    AP_Int8  home_yaw_channel;
+    AP_Int8  altitude_channel;
 
     State _state;
 
-    float fly_angle = 0.0f;
-    float interval_ms = 100.0f;
-    float fly_alt_min = 50.0f;
-    float home_yaw = 0.0f;
+    float fly_angle     = 0.0f;
+    float fly_alt_min   = 50.0f;
+    float home_yaw      = 0.0f;
 
 #ifdef AP_OPTICALFLOW_ENABLED
     AP_Float flow_max;
@@ -1285,6 +1283,7 @@ private:
     AP_Int8  flow_min_quality;
     AP_Float flow_impact;
     AP_Int8  flow_filter_samples;
+    AP_Float flow_error_multiplier;
     
     LowPassFilterConstDtVector2f flow_filter;
 

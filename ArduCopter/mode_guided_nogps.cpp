@@ -12,7 +12,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Yaw rate for YAW state (in degrees per second)
     // @Range: 0.0 10.0
     // @User: Standard
-    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 1),
+    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 2),
 
     // @Param: _CLMB_RATE
     // @DisplayName: GuidedNoGPS climb rate
@@ -87,6 +87,13 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Range: 0 255
     // @User: Standard
     AP_GROUPINFO("_FLOW_SMPL", 8, ModeGuidedNoGPS, flow_filter_samples, 15),
+
+    // @Param: _FLOW_ERMP
+    // @DisplayName: GuidedNoGPS Flow error multiplier
+    // @Description: Optical flow error multiplier
+    // @Range: 0.0 1.0
+    // @User: Standard
+    AP_GROUPINFO("_FLOW_ERMP", 9, ModeGuidedNoGPS, flow_error_multiplier, 0.1f),
 #endif
 
     // @Param: _HOME_YAW_CH
@@ -94,14 +101,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Description: Home yaw source channel for HOME state
     // @Range: 0 16
     // @User: Standard
-    AP_GROUPINFO("_HOME_YAW_CH", 9, ModeGuidedNoGPS, home_yaw_channel, 0),
+    AP_GROUPINFO("_HOME_YAW_CH", 10, ModeGuidedNoGPS, home_yaw_channel, 0),
 
     // @Param: _ALT_CH
     // @DisplayName: GuidedNoGPS Altitude Channel
     // @Description: Altitude source channel
     // @Range: 0 16
     // @User: Standard
-    AP_GROUPINFO("_ALT_CH", 10, ModeGuidedNoGPS, altitude_channel, 0),
+    AP_GROUPINFO("_ALT_CH", 11, ModeGuidedNoGPS, altitude_channel, 0),
 
     AP_GROUPEND
 };
@@ -121,16 +128,16 @@ float ModeGuidedNoGPS::get_yaw_error()
     return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 180);
 }
 
-float ModeGuidedNoGPS::get_yaw_rate(float yaw_error)
+float ModeGuidedNoGPS::get_target_yaw_rate(float yaw_error)
 {
     // Calculate the yaw rate
-    float target_yaw_rate = yaw_rate * 1000;
+    float target_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
 
-    if (yaw_error > 45 && target_yaw_rate > 0) {
-        target_yaw_rate = -target_yaw_rate;
+    if (yaw_error > 90 && target_rate > 0) {
+        target_rate = -target_rate;
     }
 
-    return target_yaw_rate;
+    return target_rate;
 }
 
 void ModeGuidedNoGPS::read_rc()
@@ -212,10 +219,11 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
 
     flow_pi_xy.reset_I();
-    flow_pi_xy.set_dt(1.0/copter.scheduler.get_loop_rate_hz());
+    flow_pi_xy.set_dt(1.0 / copter.scheduler.get_loop_rate_hz() * flow_filter_samples);
 
     flow_samples_count = 0;
     flow_error.zero();
+    flow_error_buff.zero();
 #endif
 
     // Information message
@@ -249,9 +257,10 @@ void ModeGuidedNoGPS::yaw_run()
 {
     // Calculate the yaw error
     float error = get_yaw_error();
-    float rate = get_yaw_rate(error);
+    float rate = get_target_yaw_rate(error);
 
     if (abs(error) < 5.0f) {
+        copter.attitude_control->get_rate_yaw_pid().reset_filter();
         copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
         _state = State::ALT;
         return;
@@ -262,22 +271,32 @@ void ModeGuidedNoGPS::yaw_run()
 
 void ModeGuidedNoGPS::alt_run()
 {
+    bool altitude_reached = adjust_altitude();
+
     Vector2f angles = Vector2f(0, 0);
     
 #if AP_OPTICALFLOW_ENABLED
     optflow_correction(angles);
 #endif // AP_OPTICALFLOW_ENABLED
 
+    angles.x = constrain_float(angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
+    angles.y = constrain_float(angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(angles.x, angles.y, 0);
     
-    if(adjust_altitude()) {
+    if(altitude_reached) {
         _state = State::FLY;
+
+        // Reset optical flow error
+        flow_samples_count = 0;
+        flow_error.zero();
+        flow_error_buff.zero();
     }
 }
 
 void ModeGuidedNoGPS::fly_run()
 {
-    pos_control->set_pos_target_z_from_climb_rate_cm(0);
+    adjust_altitude();
 
     // Calculate body to home azimuth
     float current_yaw = degrees(copter.ahrs.get_yaw());
@@ -297,8 +316,15 @@ void ModeGuidedNoGPS::fly_run()
     bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
     bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
 
+    // Maybe apply yaw correction
+    float yaw_error = get_yaw_error();
+
     // call attitude controller
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(bf_angles.x, bf_angles.y, 0);
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
+        bf_angles.x,
+        bf_angles.y,
+        yaw_error > 0.5f ? get_target_yaw_rate(yaw_error) : 0
+    );
 }
 
 #if AP_OPTICALFLOW_ENABLED
@@ -306,7 +332,7 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
 {
     if (copter.optflow.healthy()) {
         const float filter_constant = 0.95;
-        quality_filtered = filter_constant * quality_filtered + (1-filter_constant) * copter.optflow.quality();
+        quality_filtered = filter_constant * quality_filtered + (1 - filter_constant) * copter.optflow.quality();
     } else {
         quality_filtered = 0;
     }
@@ -316,14 +342,18 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         Vector2f raw_flow = copter.optflow.flowRate() - copter.optflow.bodyRate();
 
         flow_samples_count++;
+        flow_error_buff += raw_flow;
 
-        // Subtract the previous error
-        flow_error_buff.x = (raw_flow.x - flow_error_buff.x) / 25;
-        flow_error_buff.y = (raw_flow.y - flow_error_buff.y) / 25;
+        int ffs = flow_filter_samples;
 
-        if (flow_samples_count == flow_filter_samples) {
-            flow_samples_count = 0;
+        if (flow_samples_count == ffs) {
+            flow_error_buff /= ffs;
+            flow_error_buff *= flow_error_multiplier;
+
             flow_error = flow_error_buff;
+
+            flow_samples_count = 0;
+            flow_error_buff.zero();
         }
 
         // limit sensor flow, this prevents oscillation at low altitudes
