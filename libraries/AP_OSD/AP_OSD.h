@@ -233,8 +233,8 @@ private:
     AP_OSD_Setting fence{false, 14, 9};
     AP_OSD_Setting rngf;
     // Antenna servo position indicators
-    AP_OSD_Setting ant_pitch;
-    AP_OSD_Setting ant_yaw;
+    AP_OSD_Setting ant_pitch{false, 10, 10};
+    AP_OSD_Setting ant_yaw{false, 10, 11};
 #if HAL_PLUSCODE_ENABLE
     AP_OSD_Setting pluscode;
 #endif

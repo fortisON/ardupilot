@@ -1175,37 +1175,37 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info2[] = {
     AP_GROUPINFO("ESC_IDX", 10, AP_OSD_Screen, esc_index, 0),
 #endif
 
-    // @Param: ANT_PITCH_EN
-    // @DisplayName: ANT_PITCH_EN
+    // @Param: ANT_P_EN
+    // @DisplayName: ANT_P_EN
     // @Description: Displays antenna pitch position
     // @Values: 0:Disabled,1:Enabled
 
-    // @Param: ANT_PITCH_X
-    // @DisplayName: ANT_PITCH_X
+    // @Param: ANT_P_X
+    // @DisplayName: ANT_P_X
     // @Description: Horizontal position on screen
     // @Range: 0 59
 
-    // @Param: ANT_PITCH_Y
-    // @DisplayName: ANT_PITCH_Y
+    // @Param: ANT_P_Y
+    // @DisplayName: ANT_P_Y
     // @Description: Vertical position on screen
     // @Range: 0 21
-    AP_SUBGROUPINFO(ant_pitch, "ANT_PITCH", 11, AP_OSD_Screen, AP_OSD_Setting),
+    AP_SUBGROUPINFO(ant_pitch, "ANT_P", 11, AP_OSD_Screen, AP_OSD_Setting),
 
-    // @Param: ANT_YAW_EN
-    // @DisplayName: ANT_YAW_EN
+    // @Param: ANT_Y_EN
+    // @DisplayName: ANT_Y_EN
     // @Description: Displays antenna yaw position
     // @Values: 0:Disabled,1:Enabled
 
-    // @Param: ANT_YAW_X
-    // @DisplayName: ANT_YAW_X
+    // @Param: ANT_Y_X
+    // @DisplayName: ANT_Y_X
     // @Description: Horizontal position on screen
     // @Range: 0 59
 
-    // @Param: ANT_YAW_Y
-    // @DisplayName: ANT_YAW_Y
+    // @Param: ANT_Y_Y
+    // @DisplayName: ANT_Y_Y
     // @Description: Vertical position on screen
     // @Range: 0 21
-    AP_SUBGROUPINFO(ant_yaw, "ANT_YAW", 12, AP_OSD_Screen, AP_OSD_Setting),
+    AP_SUBGROUPINFO(ant_yaw, "ANT_Y", 12, AP_OSD_Screen, AP_OSD_Setting),
 
     AP_GROUPEND
 };
@@ -2585,18 +2585,24 @@ void AP_OSD_Screen::draw_rngf(uint8_t x, uint8_t y)
 
 void AP_OSD_Screen::draw_ant_pitch(uint8_t x, uint8_t y)
 {
-    float roll, pitch, yaw;
-    AP::mount()->get_attitude_euler(1, roll, pitch, yaw);
+    float roll = 0, pitch = 0, yaw = 0;
 
-    backend->write(x, y, false, "ANT_PITCH:%hd", (int16_t)pitch);
+    if (AP::mount()->get_attitude_euler(1, roll, pitch, yaw)) {
+        backend->write(x, y, false, "ANT_P: %hd", (int16_t)pitch);
+    } else {
+        backend->write(x, y, false, "ANT_P: %s", "N/A");
+    }
 }
 
 void AP_OSD_Screen::draw_ant_yaw(uint8_t x, uint8_t y)
 {
-    float roll, pitch, yaw;
-    AP::mount()->get_attitude_euler(1, roll, pitch, yaw);
+    float roll = 0, pitch = 0, yaw = 0;
 
-    backend->write(x, y, false, "ANT_YAW:%hd", (int16_t)yaw);
+    if (AP::mount()->get_attitude_euler(1, roll, pitch, yaw)) {
+        backend->write(x, y, false, "ANT_Y: %hd", (int16_t)yaw);
+    } else {
+        backend->write(x, y, false, "ANT_Y: %s", "N/A");
+    }
 }
 
 #define DRAW_SETTING(n) if (n.enabled) draw_ ## n(n.xpos, n.ypos)
