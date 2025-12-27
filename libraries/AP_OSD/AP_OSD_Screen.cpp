@@ -2588,7 +2588,8 @@ void AP_OSD_Screen::draw_ant_pitch(uint8_t x, uint8_t y)
     float roll = 0, pitch = 0, yaw = 0;
 
     if (AP::mount()->get_attitude_euler(1, roll, pitch, yaw)) {
-        backend->write(x, y, false, "ANT_P: %hd", (int16_t)pitch);
+        int body_pitch = degrees(AP::ahrs().get_pitch());
+        backend->write(x, y, false, "ANT_P: %hd", (int16_t)(pitch = body_pitch));
     } else {
         backend->write(x, y, false, "ANT_P: %s", "N/A");
     }
@@ -2599,7 +2600,8 @@ void AP_OSD_Screen::draw_ant_yaw(uint8_t x, uint8_t y)
     float roll = 0, pitch = 0, yaw = 0;
 
     if (AP::mount()->get_attitude_euler(1, roll, pitch, yaw)) {
-        backend->write(x, y, false, "ANT_Y: %hd", (int16_t)yaw);
+        int body_yaw = degrees(AP::ahrs().get_yaw());
+        backend->write(x, y, false, "ANT_Y: %hd", (int16_t)(yaw = body_yaw));
     } else {
         backend->write(x, y, false, "ANT_Y: %s", "N/A");
     }
