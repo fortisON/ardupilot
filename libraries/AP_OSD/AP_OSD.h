@@ -232,6 +232,9 @@ private:
     AP_OSD_Setting hgt_abvterr{false, 23, 7};
     AP_OSD_Setting fence{false, 14, 9};
     AP_OSD_Setting rngf;
+    // Antenna servo position indicators
+    AP_OSD_Setting ant_pitch;
+    AP_OSD_Setting ant_yaw;
 #if HAL_PLUSCODE_ENABLE
     AP_OSD_Setting pluscode;
 #endif
@@ -338,6 +341,9 @@ private:
 #if AP_RANGEFINDER_ENABLED
     void draw_rngf(uint8_t x, uint8_t y);
 #endif
+
+    void draw_ant_pitch(uint8_t x, uint8_t y);
+    void draw_ant_yaw(uint8_t x, uint8_t y);
 
 #if AP_OSD_EXTENDED_LNK_STATS
     // Extended link stats data panels

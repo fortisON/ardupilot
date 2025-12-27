@@ -38,6 +38,7 @@
 #include <AP_GPS/AP_GPS.h>
 #include <AP_RTC/AP_RTC.h>
 #include <AP_MSP/msp.h>
+#include <AP_Mount/AP_Mount.h>
 #include <AP_OLC/AP_OLC.h>
 #include <AP_VideoTX/AP_VideoTX.h>
 #include <AP_Terrain/AP_Terrain.h>
@@ -1173,6 +1174,38 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info2[] = {
     // @Range: 0 32
     AP_GROUPINFO("ESC_IDX", 10, AP_OSD_Screen, esc_index, 0),
 #endif
+
+    // @Param: ANT_PITCH_EN
+    // @DisplayName: ANT_PITCH_EN
+    // @Description: Displays antenna pitch position
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: ANT_PITCH_X
+    // @DisplayName: ANT_PITCH_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: ANT_PITCH_Y
+    // @DisplayName: ANT_PITCH_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(ant_pitch, "ANT_PITCH", 11, AP_OSD_Screen, AP_OSD_Setting),
+
+    // @Param: ANT_YAW_EN
+    // @DisplayName: ANT_YAW_EN
+    // @Description: Displays antenna yaw position
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: ANT_YAW_X
+    // @DisplayName: ANT_YAW_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: ANT_YAW_Y
+    // @DisplayName: ANT_YAW_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(ant_yaw, "ANT_YAW", 12, AP_OSD_Screen, AP_OSD_Setting),
 
     AP_GROUPEND
 };
@@ -2550,6 +2583,22 @@ void AP_OSD_Screen::draw_rngf(uint8_t x, uint8_t y)
 }
 #endif
 
+void AP_OSD_Screen::draw_ant_pitch(uint8_t x, uint8_t y)
+{
+    float roll, pitch, yaw;
+    AP::mount()->get_attitude_euler(1, roll, pitch, yaw);
+
+    backend->write(x, y, false, "ANT_PITCH:%hd", (int16_t)pitch);
+}
+
+void AP_OSD_Screen::draw_ant_yaw(uint8_t x, uint8_t y)
+{
+    float roll, pitch, yaw;
+    AP::mount()->get_attitude_euler(1, roll, pitch, yaw);
+
+    backend->write(x, y, false, "ANT_YAW:%hd", (int16_t)yaw);
+}
+
 #define DRAW_SETTING(n) if (n.enabled) draw_ ## n(n.xpos, n.ypos)
 
 #if HAL_WITH_OSD_BITMAP || HAL_WITH_MSP_DISPLAYPORT
@@ -2649,6 +2698,8 @@ void AP_OSD_Screen::draw(void)
     DRAW_SETTING(rc_active_antenna);
     DRAW_SETTING(rc_lq);
 #endif
+    DRAW_SETTING(ant_pitch);
+    DRAW_SETTING(ant_yaw);
 }
 #endif
 #endif // OSD_ENABLED
