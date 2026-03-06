@@ -45,6 +45,7 @@
 #include <AP_Vehicle/AP_Vehicle.h>
 #include <AP_RPM/AP_RPM.h>
 #include <AP_MSP/AP_MSP.h>
+#include <AP_Mount/AP_Mount.h>
 #if APM_BUILD_TYPE(APM_BUILD_Rover)
 #include <AP_WindVane/AP_WindVane.h>
 #endif
@@ -1205,6 +1206,38 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info2[] = {
     // @Description: Vertical position on screen
     // @Range: 0 21
     AP_SUBGROUPINFO(rtl_alt, "RTLALT", 11, AP_OSD_Screen, AP_OSD_Setting),
+
+    // @Param: MNT1_P_EN
+    // @DisplayName: MNT1_P_EN
+    // @Description: Displays MNT1 pitch
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: MNT1_P_X
+    // @DisplayName: MNT1_P_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: MNT1_P_Y
+    // @DisplayName: MNT1_P_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(mount1_pitch, "MNT1_P", 12, AP_OSD_Screen, AP_OSD_Setting),
+
+    // @Param: MNT2_P_EN
+    // @DisplayName: MNT2_P_EN
+    // @Description: Displays MNT2 pitch
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: MNT2_P_X
+    // @DisplayName: MNT2_P_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: MNT2_P_Y
+    // @DisplayName: MNT2_P_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(mount2_pitch, "MNT2_P", 13, AP_OSD_Screen, AP_OSD_Setting),
 
     AP_GROUPEND
 };
@@ -2602,6 +2635,22 @@ void AP_OSD_Screen::draw_rtl_alt(uint8_t x, uint8_t y)
     backend->write(x, y, false, "RTLALT:%3d%c", (int)alt, SYMBOL(SYM_M));
 }
 
+void AP_OSD_Screen::draw_mount1_pitch(uint8_t x, uint8_t y)
+{
+    float pitch = 0.0f;
+    AP::mount()->get_attitude_euler(0, nullptr, &pitch, nullptr);
+
+    backend->write(x, y, false, "MNT1P:%3d%c", (int)pitch, SYMBOL(SYM_DEGR));
+}
+
+void AP_OSD_Screen::draw_mount2_pitch(uint8_t x, uint8_t y)
+{
+    float pitch = 0.0f;
+    AP::mount()->get_attitude_euler(1, nullptr, &pitch, nullptr);
+
+    backend->write(x, y, false, "MNT2P:%3d%c", (int)pitch, SYMBOL(SYM_DEGR));
+}
+
 #define DRAW_SETTING(n) if (n.enabled) draw_ ## n(n.xpos, n.ypos)
 
 #if HAL_WITH_OSD_BITMAP || HAL_WITH_MSP_DISPLAYPORT
@@ -2704,6 +2753,8 @@ void AP_OSD_Screen::draw(void)
 
     DRAW_SETTING(home_yaw);
     DRAW_SETTING(rtl_alt);
+    DRAW_SETTING(mount1_pitch);
+    DRAW_SETTING(mount2_pitch);
 }
 #endif
 #endif // OSD_ENABLED
