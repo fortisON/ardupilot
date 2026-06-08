@@ -1238,6 +1238,12 @@ public:
 
     enum class State { YAW, ALT, FLY };
 
+    // RC input mapping type for dr_home_yaw / rtl_alt
+    enum class RCInputType : uint8_t {
+        ABSOLUTE    = 0,    // stick position maps directly to value (legacy behaviour)
+        INCREMENTAL = 1,    // stick deflection increments/decrements the value over time
+    };
+
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return false; }
     bool is_autopilot() const override { return true; }
@@ -1254,7 +1260,12 @@ private:
     float normalize_angle_deg(float angle);
     float get_yaw_error();
     float get_target_yaw_rate(float yaw_error);
-    
+
+    // RC reading helpers
+    void read_rc_absolute();
+    void read_rc_incremental();
+    float rc_increment_factor(const RC_Channel* channel) const;
+
     bool adjust_altitude();
 
 #ifdef AP_OPTICALFLOW_ENABLED
@@ -1269,6 +1280,16 @@ private:
     AP_Int8  climb_rate;
     AP_Int8  home_yaw_channel;
     AP_Int8  altitude_channel;
+
+    // RC input mapping configuration (see RCInputType)
+    AP_Int8  rc_input_type;     // 0 = absolute, 1 = incremental
+    AP_Float rc_deadzone;       // normalised neutral deadzone [0..1] for incremental mode
+    AP_Float rc_yaw_speed;      // max home-yaw change rate at full stick (deg/s)
+    AP_Float rc_alt_speed;      // max altitude change rate at full stick (m/s)
+
+    // fractional accumulators for incremental mode (sub-unit remainder)
+    float yaw_increment_remainder = 0.0f;
+    float alt_increment_remainder = 0.0f;
 
     State _state;
 

@@ -110,6 +110,37 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_ALT_CH", 11, ModeGuidedNoGPS, altitude_channel, 0),
 
+    // @Param: _RC_TYPE
+    // @DisplayName: GuidedNoGPS RC input type
+    // @Description: How the home-yaw and altitude RC channels change DR_HOME_YAW / RTL_ALT. 0: absolute, stick position maps directly to the value. 1: incremental, stick deflection ramps the value up/down over time (faster towards the stick extremes, nothing within the deadzone).
+    // @Values: 0:Absolute,1:Incremental
+    // @User: Standard
+    AP_GROUPINFO("_RC_TYPE", 12, ModeGuidedNoGPS, rc_input_type, 0),
+
+    // @Param: _RC_DZ
+    // @DisplayName: GuidedNoGPS RC incremental deadzone
+    // @Description: Normalised neutral deadzone for incremental RC input. While the stick stays within this fraction of centre the value is not changed.
+    // @Range: 0.0 0.95
+    // @Increment: 0.01
+    // @User: Standard
+    AP_GROUPINFO("_RC_DZ", 13, ModeGuidedNoGPS, rc_deadzone, 0.1f),
+
+    // @Param: _RC_YSPD
+    // @DisplayName: GuidedNoGPS incremental yaw speed
+    // @Description: Maximum DR_HOME_YAW change rate at full stick deflection in incremental mode.
+    // @Range: 1 180
+    // @Units: deg/s
+    // @User: Standard
+    AP_GROUPINFO("_RC_YSPD", 14, ModeGuidedNoGPS, rc_yaw_speed, 45.0f),
+
+    // @Param: _RC_ASPD
+    // @DisplayName: GuidedNoGPS incremental altitude speed
+    // @Description: Maximum RTL_ALT change rate at full stick deflection in incremental mode.
+    // @Range: 0.1 20
+    // @Units: m/s
+    // @User: Standard
+    AP_GROUPINFO("_RC_ASPD", 15, ModeGuidedNoGPS, rc_alt_speed, 5.0f),
+
     AP_GROUPEND
 };
 
@@ -146,28 +177,98 @@ void ModeGuidedNoGPS::read_rc()
         return;
     }
 
+    if (rc_input_type.get() == (int8_t)RCInputType::INCREMENTAL) {
+        read_rc_incremental();
+    } else {
+        read_rc_absolute();
+    }
+}
+
+// Absolute mapping: stick position maps directly to the parameter value.
+void ModeGuidedNoGPS::read_rc_absolute()
+{
     // Home yaw
     uint8_t home_yaw_ch = home_yaw_channel.get();
     if (home_yaw_ch > 0) {
         RC_Channel* channel = RC_Channels::rc_channel(home_yaw_ch - 1);
-        if (channel == nullptr) {
-            return;
+        if (channel != nullptr) {
+            const uint16_t yaw = 360.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
+            AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", yaw);
         }
-
-        const uint16_t yaw = 360.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
-        AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", yaw);
     }
 
     // Altitude
     uint8_t alt_ch = altitude_channel.get();
     if (alt_ch > 0) {
         RC_Channel* channel = RC_Channels::rc_channel(alt_ch - 1);
-        if (channel == nullptr) {
-            return;
+        if (channel != nullptr) {
+            const uint16_t altitude = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
+            AP_Param::set_and_save_by_name_ifchanged("rtl_alt", altitude * 100);
         }
+    }
+}
 
-        const uint16_t altitude = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
-        AP_Param::set_and_save_by_name_ifchanged("rtl_alt", altitude * 100);
+// Signed increment factor in [-1..1] for the given channel.
+// Returns 0 inside the deadzone; magnitude grows linearly from the deadzone
+// edge towards the stick extreme (proportional speed profile).
+float ModeGuidedNoGPS::rc_increment_factor(const RC_Channel* channel) const
+{
+    const float n = channel->norm_input();          // [-1..1], centred on trim
+    const float dz = constrain_float(rc_deadzone.get(), 0.0f, 0.95f);
+
+    if (fabsf(n) <= dz) {
+        return 0.0f;
+    }
+
+    const float sign = (n > 0.0f) ? 1.0f : -1.0f;
+    return sign * (fabsf(n) - dz) / (1.0f - dz);    // rescale to 0..1 beyond deadzone
+}
+
+// Incremental mapping: stick deflection ramps the value up/down over time.
+void ModeGuidedNoGPS::read_rc_incremental()
+{
+    const float dt = 0.01f;     // read_rc() is called from rc_loop() at 100Hz
+
+    // Home yaw (degrees, wrapped to 0..360)
+    uint8_t home_yaw_ch = home_yaw_channel.get();
+    if (home_yaw_ch > 0) {
+        RC_Channel* channel = RC_Channels::rc_channel(home_yaw_ch - 1);
+        if (channel != nullptr) {
+            const float factor = rc_increment_factor(channel);
+            if (is_zero(factor)) {
+                yaw_increment_remainder = 0.0f;
+            } else {
+                yaw_increment_remainder += factor * rc_yaw_speed.get() * dt;
+                if (fabsf(yaw_increment_remainder) >= 1.0f) {
+                    const int32_t step = (int32_t)yaw_increment_remainder;   // truncate toward zero
+                    int32_t newval = (int32_t)g.dr_home_yaw + step;
+                    newval = constrain_int32(newval, 0, 360);
+                    AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", newval);
+                    yaw_increment_remainder -= step;
+                }
+            }
+        }
+    }
+
+    // Altitude (stored in centimetres, 0..200m)
+    uint8_t alt_ch = altitude_channel.get();
+    if (alt_ch > 0) {
+        RC_Channel* channel = RC_Channels::rc_channel(alt_ch - 1);
+        if (channel != nullptr) {
+            const float factor = rc_increment_factor(channel);
+            if (is_zero(factor)) {
+                alt_increment_remainder = 0.0f;
+            } else {
+                alt_increment_remainder += factor * rc_alt_speed.get() * 100.0f * dt;
+                if (fabsf(alt_increment_remainder) >= 1.0f) {
+                    const int32_t step = (int32_t)alt_increment_remainder;   // truncate toward zero
+                    int32_t newval = (int32_t)g.rtl_altitude + step;
+                    newval = constrain_int32(newval, 0, 200 * 100);
+                    AP_Param::set_and_save_by_name_ifchanged("rtl_alt", newval);
+                    alt_increment_remainder -= step;
+                }
+            }
+        }
     }
 }
 
