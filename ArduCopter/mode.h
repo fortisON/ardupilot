@@ -1291,6 +1291,12 @@ private:
     float yaw_increment_remainder = 0.0f;
     float alt_increment_remainder = 0.0f;
 
+    // incremental mode updates the param in RAM only (visible on OSD) while the
+    // stick is deflected, and flushes to flash once when it returns to centre.
+    // These flag a pending unsaved change.
+    bool yaw_pending_save = false;
+    bool alt_pending_save = false;
+
     State _state;
 
     float fly_angle     = 0.0f;

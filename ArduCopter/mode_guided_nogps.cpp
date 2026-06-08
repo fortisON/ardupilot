@@ -237,14 +237,20 @@ void ModeGuidedNoGPS::read_rc_incremental()
             const float factor = rc_increment_factor(channel);
             if (is_zero(factor)) {
                 yaw_increment_remainder = 0.0f;
+                // stick back at centre: persist the dialled-in value once
+                if (yaw_pending_save) {
+                    g.dr_home_yaw.save();
+                    yaw_pending_save = false;
+                }
             } else {
                 yaw_increment_remainder += factor * rc_yaw_speed.get() * dt;
                 if (fabsf(yaw_increment_remainder) >= 1.0f) {
                     const int32_t step = (int32_t)yaw_increment_remainder;   // truncate toward zero
                     int32_t newval = (int32_t)g.dr_home_yaw + step;
                     newval = constrain_int32(newval, 0, 360);
-                    AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", newval);
+                    g.dr_home_yaw.set(newval);   // RAM only: visible on OSD, no flash write
                     yaw_increment_remainder -= step;
+                    yaw_pending_save = true;
                 }
             }
         }
@@ -258,13 +264,18 @@ void ModeGuidedNoGPS::read_rc_incremental()
             const float factor = rc_increment_factor(channel);
             if (is_zero(factor)) {
                 alt_increment_remainder = 0.0f;
+                // stick back at centre: persist the dialled-in value once
+                if (alt_pending_save) {
+                    g.rtl_altitude.save();
+                    alt_pending_save = false;
+                }
             } else {
                 alt_increment_remainder += factor * rc_alt_speed.get() * 100.0f * dt;
                 if (fabsf(alt_increment_remainder) >= 1.0f) {
                     const int32_t step = (int32_t)alt_increment_remainder;   // truncate toward zero
                     int32_t newval = (int32_t)g.rtl_altitude + step;
                     newval = constrain_int32(newval, 0, 200 * 100);
-                    AP_Param::set_and_save_by_name_ifchanged("rtl_alt", newval);
+                    g.rtl_altitude.set(newval);   // RAM only: visible on OSD, no flash write
                     alt_increment_remainder -= step;
                 }
             }
