@@ -1,5 +1,9 @@
 # Rover default parameters (collected from configured vehicle, ArduRover 4.7.0-dev)
 
+# Arming: all checks disabled, arm/disarm on RC channel 6
+ARMING_CHECK 0
+RC6_OPTION 153
+
 # Battery monitor 1 disabled, battery on monitor 2
 BATT_MONITOR 0
 BATT2_MONITOR 4
