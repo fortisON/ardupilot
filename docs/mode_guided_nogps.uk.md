@@ -7,7 +7,7 @@
 летіти в бік дому з максимальним нахилом, стабілізуючись за оптичним потоком.
 Під час входу в режим у GCS надсилається повідомлення `DR Start`.
 
-Режим не потребує GPS (`requires_GPS() = false`), throttle автоматичний,
+Режим не потребує GPS (`requires_position() = false`), throttle автоматичний,
 вважається автопілотним режимом.
 
 ---
@@ -47,7 +47,7 @@ GUIDED_NOGPS, активний radio failsafe і HDOP GPS відновився
 * Коли |похибка| < 5° — скидання фільтра yaw rate PID, обнулення команди та
   перехід в **ALT**.
 
-Під час YAW вертикальний контролер уже працює (`update_z_controller()`
+Під час YAW вертикальний контролер уже працює (`D_update_controller()`
 викликається в `run()` для всіх станів).
 
 ### 2.2 ALT — набір висоти
@@ -59,7 +59,7 @@ GUIDED_NOGPS, активний radio failsafe і HDOP GPS відновився
 * Поки бракує понад 0.5 м — набір з вертикальною швидкістю
   `GNGP_CLMB_RATE` (м/с), обмеженою `PILOT_SPEED_UP`/`PILOT_SPEED_DN`
   та avoidance.
-* Зниження ніколи не командується: якщо апарат уже вище за `RTL_ALT`,
+* Зниження ніколи не командується: якщо апарат уже вище за `RTL_ALT_M`,
   climb rate = 0 і поточна висота просто утримується.
 
 Горизонтальні кути в ALT: базові roll/pitch = 0 + поправка optical flow
@@ -127,7 +127,8 @@ home_yaw = (GNGP_HOME_YAW < 1) ? copter.azimuth_to_home : GNGP_HOME_YAW
 4. **Обмеження**: `flow_error` затискається в ±`GNGP_FLOW_MAX` (захист від
    осциляцій на малій висоті).
 5. **НЧ-фільтр**: LowPass із частотою `GNGP_FILT_HZ` (5 Гц).
-6. **Масштаб за висотою**: множення на висоту з inertial nav, обмежену
+6. **Масштаб за висотою**: множення на оцінку висоти позиційного контролера
+   (`get_pos_estimate_U_m`), обмежену
    [0.1 м; 200 м] — перетворення кутового потоку на ≈ м/с.
 7. **PI-контролер** `AC_PI_2D` (вхід повертається в earth frame):
    * P = `GNGP_XY_P`, I = `GNGP_XY_I`, IMAX = `GNGP_XY_IMAX` (соті частки
@@ -231,7 +232,7 @@ home_yaw = (GNGP_HOME_YAW < 1) ? copter.azimuth_to_home : GNGP_HOME_YAW
 | `PILOT_SPEED_UP` / `PILOT_SPEED_DN` | Обмеження вертикальної швидкості в `adjust_altitude()`. |
 | `FS_EKF_ACTION` | =1 (AltHold): за EKF failsafe + radio failsafe → вхід у GUIDED_NOGPS. |
 | `FS_DR_ENABLE` / `FS_DR_TIMEOUT` | Deadreckon failsafe; його дія RTL за недоступності RTL приводить у GUIDED_NOGPS. |
-| `PSC_*`, вертикальні PID | Штатний z-контролер `AC_PosControl` відпрацьовує висоту (`update_z_controller()`). |
+| `PSC_*`, вертикальні PID | Штатний D-frame контролер `AC_PosControl` відпрацьовує висоту (`D_update_controller()`). |
 
 ---
 

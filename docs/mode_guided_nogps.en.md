@@ -7,7 +7,7 @@ use any guided logic — instead it runs its own state machine
 maximum tilt while stabilizing with optical flow. On mode entry the message
 `DR Start` is sent to the GCS.
 
-The mode does not require GPS (`requires_GPS() = false`), throttle is
+The mode does not require GPS (`requires_position() = false`), throttle is
 automatic, and it is treated as an autopilot mode.
 
 ---
@@ -50,7 +50,7 @@ own.
   and the state advances to **ALT**.
 
 During YAW the vertical controller is already running
-(`update_z_controller()` is called in `run()` for all states).
+(`D_update_controller()` is called in `run()` for all states).
 
 ### 2.2 ALT — climbing
 
@@ -60,7 +60,7 @@ During YAW the vertical controller is already running
 * Target altitude = `RTL_ALT_M` (metres) **above home** (`fly_alt_min`).
 * While more than 0.5 m short, the vehicle climbs at `GNGP_CLMB_RATE` (m/s),
   limited by `PILOT_SPEED_UP`/`PILOT_SPEED_DN` and avoidance.
-* Descent is never commanded: if the vehicle is already above `RTL_ALT`, the
+* Descent is never commanded: if the vehicle is already above `RTL_ALT_M`, the
   climb rate is 0 and the current altitude is simply held.
 
 Horizontal angles in ALT: base roll/pitch = 0 plus the optical flow correction
@@ -129,7 +129,8 @@ Processing pipeline (every main loop cycle):
 4. **Limiting**: `flow_error` is clamped to ±`GNGP_FLOW_MAX` (protection
    against oscillations at low altitude).
 5. **Low-pass filter**: LowPass at `GNGP_FILT_HZ` (5 Hz).
-6. **Height scaling**: multiplied by the inertial nav height constrained to
+6. **Height scaling**: multiplied by the position controller height estimate
+   (`get_pos_estimate_U_m`) constrained to
    [0.1 m; 200 m] — converting angular flow to ≈ m/s.
 7. **PI controller** `AC_PI_2D` (input rotated to the earth frame):
    * P = `GNGP_XY_P`, I = `GNGP_XY_I`, IMAX = `GNGP_XY_IMAX` (centidegrees),
@@ -233,7 +234,7 @@ Stick deflection sets the **rate of change** of the value:
 | `PILOT_SPEED_UP` / `PILOT_SPEED_DN` | Vertical speed limits in `adjust_altitude()`. |
 | `FS_EKF_ACTION` | =1 (AltHold): EKF failsafe + radio failsafe → enter GUIDED_NOGPS. |
 | `FS_DR_ENABLE` / `FS_DR_TIMEOUT` | Deadreckon failsafe; its RTL action falls back to GUIDED_NOGPS when RTL is unavailable. |
-| `PSC_*`, vertical PIDs | The stock `AC_PosControl` z-controller handles altitude (`update_z_controller()`). |
+| `PSC_*`, vertical PIDs | The stock `AC_PosControl` D-frame controller handles altitude (`D_update_controller()`). |
 
 ---
 
