@@ -57,7 +57,7 @@ During YAW the vertical controller is already running
 `adjust_altitude()`:
 * Current altitude relative to home is taken from AHRS
   (`get_relative_position_D_home`).
-* Target altitude = `RTL_ALT` (cm → m) **above home** (`fly_alt_min`).
+* Target altitude = `RTL_ALT_M` (metres) **above home** (`fly_alt_min`).
 * While more than 0.5 m short, the vehicle climbs at `GNGP_CLMB_RATE` (m/s),
   limited by `PILOT_SPEED_UP`/`PILOT_SPEED_DN` and avoidance.
 * Descent is never commanded: if the vehicle is already above `RTL_ALT`, the
@@ -159,7 +159,7 @@ correction works at full strength and cancels sideways drift. In the ALT state
 
 ---
 
-## 5. Controlling GNGP_HOME_YAW and RTL_ALT from the transmitter
+## 5. Controlling GNGP_HOME_YAW and RTL_ALT_M from the transmitter
 
 `ModeGuidedNoGPS::read_rc()` is called from `Copter::rc_loop()` at **100 Hz
 permanently**, regardless of the current flight mode (the transmitter can
@@ -173,7 +173,7 @@ Channels: `GNGP_HOME_YAW_CH` and `GNGP_ALT_CH` (1–16, 0 = disabled).
 The stick position maps directly to the value:
 
 * yaw: `360 × (norm_input_dz + 1) / 2` → `GNGP_HOME_YAW` = 0–360°;
-* altitude: `200 × (norm_input_dz + 1) / 2` m → `RTL_ALT` = 0–20000 cm.
+* altitude: `200 × (norm_input_dz + 1) / 2` m → `RTL_ALT_M` = 0–200 m.
 
 Written via `set_and_save_by_name_ifchanged` — every change is immediately
 saved to EEPROM (a noisy channel may wear the flash — fine for a knob/slider,
@@ -188,12 +188,12 @@ Stick deflection sets the **rate of change** of the value:
 * Beyond it the rate grows linearly from 0 to the maximum at full deflection:
   `GNGP_RC_YSPD` deg/s for yaw (default 45), `GNGP_RC_ASPD` m/s for altitude
   (default 5).
-* Fractional increments accumulate in a remainder (`*_increment_remainder`)
-  and are applied in whole steps. Limits: yaw 0–360°, altitude 0–200 m.
+* Yaw accumulates fractional increments and is applied in whole degrees;
+  altitude changes smoothly. Limits: yaw 0–360°, altitude 0–200 m.
 * While the stick is deflected, the parameter changes **in RAM only** (`set()`
   — the value is visible on the OSD, no flash writes); when the stick returns
   to centre the value is saved to EEPROM once. This applies to both
-  `GNGP_HOME_YAW` and `RTL_ALT`.
+  `GNGP_HOME_YAW` and `RTL_ALT_M`.
 
 ---
 
@@ -216,18 +216,18 @@ Stick deflection sets the **rate of change** of the value:
 | `GNGP_FLOW_SMPL` | 15 | Number of flow averaging samples. |
 | `GNGP_FLOW_ERMP` | 0.1 | Averaged flow error multiplier. |
 | `GNGP_HOME_YAW_CH` | 0 | RC channel for `GNGP_HOME_YAW` (0 = off). |
-| `GNGP_ALT_CH` | 0 | RC channel for `RTL_ALT` (0 = off). |
+| `GNGP_ALT_CH` | 0 | RC channel for `RTL_ALT_M` (0 = off). |
 | `GNGP_RC_TYPE` | 0 | 0 = absolute stick mapping, 1 = incremental. |
 | `GNGP_RC_DZ` | 0.1 | Incremental mode deadzone (0–0.95). |
 | `GNGP_RC_YSPD` | 45 | Max `GNGP_HOME_YAW` change rate, deg/s. |
-| `GNGP_RC_ASPD` | 5 | Max `RTL_ALT` change rate, m/s. |
+| `GNGP_RC_ASPD` | 5 | Max `RTL_ALT_M` change rate, m/s. |
 | `GNGP_HOME_YAW` | 0 | Return azimuth to home, deg (0–360). Values < 1 = automatic bearing to home (§3). Formerly the global `DR_HOME_YAW`; a stored old value is converted automatically on boot. |
 
 ### Related external parameters
 
 | Parameter | Role in the mode |
 |---|---|
-| `RTL_ALT` | Target altitude above home (cm) for the ALT state; no descent. |
+| `RTL_ALT_M` | Target altitude above home (m) for the ALT state; no descent. Formerly `RTL_ALT` in cm — auto-converted on boot. |
 | `GPS_HDOP_GOOD` | HDOP threshold: while GPS is "good", `azimuth_to_home` is updated; HDOP recovery in flight → automatic switch to RTL. |
 | `ANGLE_MAX` | Maximum tilt: the copter flies home with it; also the PI output scale and the flow correction limit. |
 | `PILOT_SPEED_UP` / `PILOT_SPEED_DN` | Vertical speed limits in `adjust_altitude()`. |
@@ -255,6 +255,11 @@ Fixed (2026-07-29):
 5. The global `DR_HOME_YAW` parameter was moved into the mode's group as
    `GNGP_HOME_YAW` so everything lives next to the mode. A value stored in
    EEPROM under the old name is converted automatically on the first boot.
+
+2026-07-29: the fork was updated onto ArduPilot **Copter-4.7.0 stable**.
+`RTL_ALT` became `RTL_ALT_M` (metres, upstream auto-conversion on boot) and the
+mode was migrated to the new radian/metre controller APIs; behaviour is
+unchanged.
 
 Remaining quirks:
 

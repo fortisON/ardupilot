@@ -71,5 +71,8 @@ enum class ModeReason : uint8_t {
   MODE_TAKEOFF_FAILSAFE = 51,
   DDS_COMMAND = 52,
   AUX_FUNCTION = 53,
-  EKF_FAILSAFE_RECOVERY = 54,
+  FIXED_WING_AUTOLAND = 54,
+  FENCE_REENABLE = 55,
+  // fork-custom reasons start at 56
+  EKF_FAILSAFE_RECOVERY = 56,
 };

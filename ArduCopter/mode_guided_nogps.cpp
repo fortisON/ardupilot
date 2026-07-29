@@ -112,7 +112,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
 
     // @Param: _RC_TYPE
     // @DisplayName: GuidedNoGPS RC input type
-    // @Description: How the home-yaw and altitude RC channels change GNGP_HOME_YAW / RTL_ALT. 0: absolute, stick position maps directly to the value. 1: incremental, stick deflection ramps the value up/down over time (faster towards the stick extremes, nothing within the deadzone).
+    // @Description: How the home-yaw and altitude RC channels change GNGP_HOME_YAW / RTL_ALT_M. 0: absolute, stick position maps directly to the value. 1: incremental, stick deflection ramps the value up/down over time (faster towards the stick extremes, nothing within the deadzone).
     // @Values: 0:Absolute,1:Incremental
     // @User: Standard
     AP_GROUPINFO("_RC_TYPE", 12, ModeGuidedNoGPS, rc_input_type, 0),
@@ -135,7 +135,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
 
     // @Param: _RC_ASPD
     // @DisplayName: GuidedNoGPS incremental altitude speed
-    // @Description: Maximum RTL_ALT change rate at full stick deflection in incremental mode.
+    // @Description: Maximum RTL_ALT_M change rate at full stick deflection in incremental mode.
     // @Range: 0.1 20
     // @Units: m/s
     // @User: Standard
@@ -170,8 +170,8 @@ float ModeGuidedNoGPS::get_yaw_error()
 
 float ModeGuidedNoGPS::get_target_yaw_rate(float yaw_error)
 {
-    // proportional rate in centidegrees/s: full speed above 20 deg of error, 10% floor
-    float target_rate = yaw_rate * 100 * constrain_float(fabsf(yaw_error) / 20, 0.1f, 1.0f);
+    // proportional rate in rad/s: full speed above 20 deg of error, 10% floor
+    float target_rate = radians(yaw_rate * constrain_float(fabsf(yaw_error) / 20, 0.1f, 1.0f));
 
     if (yaw_error < 0) {
         target_rate = -target_rate;
@@ -211,8 +211,8 @@ void ModeGuidedNoGPS::read_rc_absolute()
     if (alt_ch > 0) {
         RC_Channel* channel = RC_Channels::rc_channel(alt_ch - 1);
         if (channel != nullptr) {
-            const uint16_t altitude = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
-            AP_Param::set_and_save_by_name_ifchanged("rtl_alt", altitude * 100);
+            const float altitude_m = 200.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
+            copter.mode_rtl.set_and_save_altitude_m_ifchanged(altitude_m);
         }
     }
 }
@@ -265,29 +265,23 @@ void ModeGuidedNoGPS::read_rc_incremental()
         }
     }
 
-    // Altitude (stored in centimetres, 0..200m)
+    // Altitude (RTL_ALT_M, metres, 0..200m)
     uint8_t alt_ch = altitude_channel.get();
     if (alt_ch > 0) {
         RC_Channel* channel = RC_Channels::rc_channel(alt_ch - 1);
         if (channel != nullptr) {
             const float factor = rc_increment_factor(channel);
             if (is_zero(factor)) {
-                alt_increment_remainder = 0.0f;
                 // stick back at centre: persist the dialled-in value once
                 if (alt_pending_save) {
-                    g.rtl_altitude.save();
+                    copter.mode_rtl.save_altitude_m();
                     alt_pending_save = false;
                 }
             } else {
-                alt_increment_remainder += factor * rc_alt_speed.get() * 100.0f * dt;
-                if (fabsf(alt_increment_remainder) >= 1.0f) {
-                    const int32_t step = (int32_t)alt_increment_remainder;   // truncate toward zero
-                    int32_t newval = (int32_t)g.rtl_altitude + step;
-                    newval = constrain_int32(newval, 0, 200 * 100);
-                    g.rtl_altitude.set(newval);   // RAM only: visible on OSD, no flash write
-                    alt_increment_remainder -= step;
-                    alt_pending_save = true;
-                }
+                const float newval = constrain_float(
+                    copter.mode_rtl.get_altitude_m() + factor * rc_alt_speed.get() * dt, 0.0f, 200.0f);
+                copter.mode_rtl.set_altitude_m(newval);   // RAM only: visible on OSD, no flash write
+                alt_pending_save = true;
             }
         }
     }
@@ -304,16 +298,16 @@ bool ModeGuidedNoGPS::adjust_altitude()
 
     copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
-    float target_climb_rate = 0;
+    float target_climb_rate_ms = 0;
 
     if (target_alt_above_vehicle > 0.5f) {
-        target_climb_rate = constrain_float(climb_rate * 100, -get_pilot_speed_dn(), g.pilot_speed_up);
-        target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
+        target_climb_rate_ms = constrain_float(climb_rate, -get_pilot_speed_dn_ms(), get_pilot_speed_up_ms());
+        target_climb_rate_ms = get_avoidance_adjusted_climbrate_ms(target_climb_rate_ms);
     }
 
-    pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+    pos_control->D_set_pos_target_from_climb_rate_ms(target_climb_rate_ms);
 
-    if (target_climb_rate > 0) {
+    if (target_climb_rate_ms > 0) {
         return false;
     }
 
@@ -324,14 +318,18 @@ bool ModeGuidedNoGPS::adjust_altitude()
 bool ModeGuidedNoGPS::init(bool ignore_checks)
 {
     // initialise the vertical position controller
-    if (!copter.pos_control->is_active_z()) {
-        pos_control->init_z_controller();
+    if (!pos_control->D_is_active()) {
+        pos_control->D_init_controller();
     }
+
+    // set vertical speed and acceleration limits
+    pos_control->D_set_max_speed_accel_m(get_pilot_speed_dn_ms(), get_pilot_speed_up_ms(), get_pilot_accel_D_mss());
+    pos_control->D_set_correction_speed_accel_m(get_pilot_speed_dn_ms(), get_pilot_speed_up_ms(), get_pilot_accel_D_mss());
 
     _state = State::YAW;
 
     // Minimum height and yaw
-    fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
+    fly_alt_min = copter.mode_rtl.get_altitude_m(); // minimum height above the home
     home_yaw = normalize_angle_deg(dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(dr_home_yaw));
 
 #ifdef AP_OPTICALFLOW_ENABLED
@@ -369,7 +367,7 @@ void ModeGuidedNoGPS::run()
     }
 
     // run the vertical position controller and set output throttle
-    pos_control->update_z_controller();
+    pos_control->D_update_controller();
 }
 
 void ModeGuidedNoGPS::yaw_run()
@@ -380,28 +378,29 @@ void ModeGuidedNoGPS::yaw_run()
 
     if (fabsf(error) < 5.0f) {
         copter.attitude_control->get_rate_yaw_pid().reset_filter();
-        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
+        copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw_rad(0, 0, 0);
         _state = State::ALT;
         return;
     }
 
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, rate);
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw_rad(0, 0, rate);
 }
 
 void ModeGuidedNoGPS::alt_run()
 {
     bool altitude_reached = adjust_altitude();
 
-    Vector2f angles = Vector2f(0, 0);
-    
+    const float angle_max_rad = copter.attitude_control->lean_angle_max_rad();
+    Vector2f angles_rad;
+
 #if AP_OPTICALFLOW_ENABLED
-    optflow_correction(angles);
+    optflow_correction(angles_rad);
 #endif // AP_OPTICALFLOW_ENABLED
 
-    angles.x = constrain_float(angles.x, -copter.aparm.angle_max, copter.aparm.angle_max);
-    angles.y = constrain_float(angles.y, -copter.aparm.angle_max, copter.aparm.angle_max);
+    angles_rad.x = constrain_float(angles_rad.x, -angle_max_rad, angle_max_rad);
+    angles_rad.y = constrain_float(angles_rad.y, -angle_max_rad, angle_max_rad);
 
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(angles.x, angles.y, 0);
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw_rad(angles_rad.x, angles_rad.y, 0);
     
     if(altitude_reached) {
         _state = State::FLY;
@@ -425,21 +424,21 @@ void ModeGuidedNoGPS::fly_run()
     Vector2f home_vector = Vector2f(sinf(body_to_home_azimuth), -cosf(body_to_home_azimuth));
     Vector2f bf_angles = Vector2f(home_vector.x, home_vector.y);
 
-    float angle_max = copter.aparm.angle_max;
-    bf_angles = bf_angles.normalized() * angle_max;
+    const float angle_max_rad = copter.attitude_control->lean_angle_max_rad();
+    bf_angles = bf_angles.normalized() * angle_max_rad;
 
 #if AP_OPTICALFLOW_ENABLED
     optflow_correction(bf_angles);
 #endif // AP_OPTICALFLOW_ENABLED
 
-    bf_angles.x = constrain_float(bf_angles.x, -angle_max, angle_max);
-    bf_angles.y = constrain_float(bf_angles.y, -angle_max, angle_max);
+    bf_angles.x = constrain_float(bf_angles.x, -angle_max_rad, angle_max_rad);
+    bf_angles.y = constrain_float(bf_angles.y, -angle_max_rad, angle_max_rad);
 
     // Maybe apply yaw correction
     float yaw_error = get_yaw_error();
 
     // call attitude controller
-    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
+    copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw_rad(
         bf_angles.x,
         bf_angles.y,
         fabsf(yaw_error) > 0.5f ? get_target_yaw_rate(yaw_error) : 0
@@ -483,10 +482,10 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         Vector2f sensor_flow = flow_filter.apply(flow_error);
 
         // scale by height estimate
-        float height = copter.inertial_nav.get_position_z_up_cm() * 0.01;
+        const float height_m = pos_control->get_pos_estimate_U_m();
 
         // compensate for height, this converts to (approx) m/s
-        sensor_flow *= constrain_float(height, height_min, height_max);
+        sensor_flow *= constrain_float(height_m, height_min, height_max);
 
         // rotate controller input to earth frame
         Vector2f input_ef = copter.ahrs.body_to_earth2D(sensor_flow);
@@ -507,9 +506,11 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         }
 
         // get P term
+        const float angle_max_rad = copter.attitude_control->lean_angle_max_rad();
+
         ef_output = flow_pi_xy.get_p();
         ef_output += xy_I;
-        ef_output *= copter.aparm.angle_max;
+        ef_output *= angle_max_rad;
 
 #ifdef HAL_LOGGING_ENABLED
         copter.Log_Write_Optflow_PI(flow_pi_xy.get_p(), xy_I);
@@ -521,11 +522,11 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         flow_angles += copter.ahrs.earth_to_body2D(ef_output);
 
         // set limited flag to prevent integrator windup
-        limited = fabsf(target_angles.x) > copter.aparm.angle_max || fabsf(target_angles.y) > copter.aparm.angle_max;
+        limited = fabsf(target_angles.x) > angle_max_rad || fabsf(target_angles.y) > angle_max_rad;
 
         // constrain to angle limit
-        flow_angles.x = constrain_float(flow_angles.x, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
-        flow_angles.y = constrain_float(flow_angles.y, -copter.aparm.angle_max * flow_impact, copter.aparm.angle_max * flow_impact);
+        flow_angles.x = constrain_float(flow_angles.x, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
+        flow_angles.y = constrain_float(flow_angles.y, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
 
         target_angles.x += flow_angles.x + target_angles.x * flow_impact;
         target_angles.y += flow_angles.y + target_angles.y * flow_impact;
