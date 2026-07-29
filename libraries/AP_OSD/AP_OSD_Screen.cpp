@@ -2585,7 +2585,7 @@ void AP_OSD_Screen::draw_rngf(uint8_t x, uint8_t y)
 void AP_OSD_Screen::draw_home_yaw(uint8_t x, uint8_t y)
 {
     float yaw = 0.0f;
-    AP_Param::get("dr_home_yaw", yaw);
+    AP_Param::get("GNGP_HOME_YAW", yaw);
 
     backend->write(x, y, false, "HOMEYAW:%3d%c", (int)yaw, SYMBOL(SYM_DEGR));
 }

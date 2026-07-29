@@ -112,7 +112,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
 
     // @Param: _RC_TYPE
     // @DisplayName: GuidedNoGPS RC input type
-    // @Description: How the home-yaw and altitude RC channels change DR_HOME_YAW / RTL_ALT. 0: absolute, stick position maps directly to the value. 1: incremental, stick deflection ramps the value up/down over time (faster towards the stick extremes, nothing within the deadzone).
+    // @Description: How the home-yaw and altitude RC channels change GNGP_HOME_YAW / RTL_ALT. 0: absolute, stick position maps directly to the value. 1: incremental, stick deflection ramps the value up/down over time (faster towards the stick extremes, nothing within the deadzone).
     // @Values: 0:Absolute,1:Incremental
     // @User: Standard
     AP_GROUPINFO("_RC_TYPE", 12, ModeGuidedNoGPS, rc_input_type, 0),
@@ -127,7 +127,7 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
 
     // @Param: _RC_YSPD
     // @DisplayName: GuidedNoGPS incremental yaw speed
-    // @Description: Maximum DR_HOME_YAW change rate at full stick deflection in incremental mode.
+    // @Description: Maximum GNGP_HOME_YAW change rate at full stick deflection in incremental mode.
     // @Range: 1 180
     // @Units: deg/s
     // @User: Standard
@@ -140,6 +140,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Units: m/s
     // @User: Standard
     AP_GROUPINFO("_RC_ASPD", 15, ModeGuidedNoGPS, rc_alt_speed, 5.0f),
+
+    // @Param: _HOME_YAW
+    // @DisplayName: GuidedNoGPS home yaw
+    // @Description: Return azimuth to home in degrees. Values below 1 mean automatic: the bearing to home captured while GPS was still healthy is used.
+    // @Range: 0 360
+    // @Units: deg
+    // @User: Standard
+    AP_GROUPINFO("_HOME_YAW", 16, ModeGuidedNoGPS, dr_home_yaw, DR_HOME_YAW_DEFAULT),
 
     AP_GROUPEND
 };
@@ -194,7 +202,7 @@ void ModeGuidedNoGPS::read_rc_absolute()
         RC_Channel* channel = RC_Channels::rc_channel(home_yaw_ch - 1);
         if (channel != nullptr) {
             const uint16_t yaw = 360.0f * ((channel->norm_input_dz() + 1.0f) / 2.0f);
-            AP_Param::set_and_save_by_name_ifchanged("dr_home_yaw", yaw);
+            dr_home_yaw.set_and_save_ifchanged(yaw);
         }
     }
 
@@ -240,16 +248,16 @@ void ModeGuidedNoGPS::read_rc_incremental()
                 yaw_increment_remainder = 0.0f;
                 // stick back at centre: persist the dialled-in value once
                 if (yaw_pending_save) {
-                    g.dr_home_yaw.save();
+                    dr_home_yaw.save();
                     yaw_pending_save = false;
                 }
             } else {
                 yaw_increment_remainder += factor * rc_yaw_speed.get() * dt;
                 if (fabsf(yaw_increment_remainder) >= 1.0f) {
                     const int32_t step = (int32_t)yaw_increment_remainder;   // truncate toward zero
-                    int32_t newval = (int32_t)g.dr_home_yaw + step;
+                    int32_t newval = (int32_t)dr_home_yaw + step;
                     newval = constrain_int32(newval, 0, 360);
-                    g.dr_home_yaw.set(newval);   // RAM only: visible on OSD, no flash write
+                    dr_home_yaw.set(newval);   // RAM only: visible on OSD, no flash write
                     yaw_increment_remainder -= step;
                     yaw_pending_save = true;
                 }
@@ -324,7 +332,7 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
 
     // Minimum height and yaw
     fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
-    home_yaw = normalize_angle_deg(g.dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(g.dr_home_yaw));
+    home_yaw = normalize_angle_deg(dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(dr_home_yaw));
 
 #ifdef AP_OPTICALFLOW_ENABLED
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);

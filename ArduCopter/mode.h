@@ -1281,6 +1281,9 @@ private:
     AP_Int8  home_yaw_channel;
     AP_Int8  altitude_channel;
 
+    // return azimuth to home, degrees; < 1 means automatic (bearing captured while GPS was healthy)
+    AP_Int32 dr_home_yaw;
+
     // RC input mapping configuration (see RCInputType)
     AP_Int8  rc_input_type;     // 0 = absolute, 1 = incremental
     AP_Float rc_deadzone;       // normalised neutral deadzone [0..1] for incremental mode

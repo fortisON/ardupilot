@@ -31,13 +31,6 @@
 #endif
 
 const AP_Param::Info Copter::var_info[] = {
-    // @Param: DR_HOME_YAW
-    // @DisplayName: DR Home Yaw
-    // @Description: Dr Home Yaw
-    // @Range: 0 360
-    // @User: Advanced
-    GSCALAR(dr_home_yaw, "DR_HOME_YAW", DR_HOME_YAW_DEFAULT),
-
     // @Param: FORMAT_VERSION
     // @DisplayName: Eeprom format version number
     // @Description: This value is incremented when changes are made to the eeprom format
@@ -1365,6 +1358,10 @@ const AP_Param::ConversionInfo conversion_table[] = {
     { Parameters::k_param_compass_enabled_deprecated,    0,      AP_PARAM_INT8, "COMPASS_ENABLE" },
     // PARAMETER_CONVERSION - Added: Jul-2019
     { Parameters::k_param_arming,             2,     AP_PARAM_INT16,  "ARMING_CHECK" },
+#if MODE_GUIDED_NOGPS_ENABLED
+    // PARAMETER_CONVERSION - Added: Jul-2026 (DR_HOME_YAW moved into the GuidedNoGPS param group)
+    { Parameters::k_param_dr_home_yaw,        0,     AP_PARAM_INT32,  "GNGP_HOME_YAW" },
+#endif
 };
 
 void Copter::load_parameters(void)

@@ -192,7 +192,7 @@ public:
         // 97: RSSI
         k_param_rssi = 97,
 
-        // 98: Home Yaw
+        // 98: Home Yaw (moved to GNGP_HOME_YAW, kept for conversion)
       	k_param_dr_home_yaw,
                 
         //
@@ -388,8 +388,6 @@ public:
         // the k_param_* space is 9-bits in size
         // 511: reserved
     };
-
-    AP_Int32        dr_home_yaw;
 
     AP_Int16        format_version;
 
