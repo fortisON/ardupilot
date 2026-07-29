@@ -10,9 +10,9 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @Param: _YAW_RATE
     // @DisplayName: GuidedNoGPS yaw rate
     // @Description: Yaw rate for YAW state (in degrees per second)
-    // @Range: 0.0 10.0
+    // @Range: 0.0 60.0
     // @User: Standard
-    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 2),
+    AP_GROUPINFO("_YAW_RATE", 1, ModeGuidedNoGPS, yaw_rate, 20),
 
     // @Param: _CLMB_RATE
     // @DisplayName: GuidedNoGPS climb rate
@@ -154,17 +154,18 @@ float ModeGuidedNoGPS::normalize_angle_deg(float angle)
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
 }
 
+// signed shortest-path yaw error to home_yaw in degrees, [-180..180)
 float ModeGuidedNoGPS::get_yaw_error()
 {
-    return fmod(normalize_angle_deg(home_yaw - degrees(copter.ahrs.get_yaw())), 180);
+    return wrap_180(home_yaw - degrees(copter.ahrs.get_yaw()));
 }
 
 float ModeGuidedNoGPS::get_target_yaw_rate(float yaw_error)
 {
-    // Calculate the yaw rate
-    float target_rate = yaw_rate * 1000 * max(0.1f, min(1.0f, abs(yaw_error) / 20));
+    // proportional rate in centidegrees/s: full speed above 20 deg of error, 10% floor
+    float target_rate = yaw_rate * 100 * constrain_float(fabsf(yaw_error) / 20, 0.1f, 1.0f);
 
-    if (yaw_error > 90 && target_rate > 0) {
+    if (yaw_error < 0) {
         target_rate = -target_rate;
     }
 
@@ -277,6 +278,7 @@ void ModeGuidedNoGPS::read_rc_incremental()
                     newval = constrain_int32(newval, 0, 200 * 100);
                     g.rtl_altitude.set(newval);   // RAM only: visible on OSD, no flash write
                     alt_increment_remainder -= step;
+                    alt_pending_save = true;
                 }
             }
         }
@@ -319,9 +321,6 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     }
 
     _state = State::YAW;
-
-    // Set parameters
-    fly_angle = copter.aparm.angle_max / 100.0f;    // maximum tilt angle in radians (angle_max in hundredths of a degree)
 
     // Minimum height and yaw
     fly_alt_min = g.rtl_altitude / 100.0f;          // minimum height above the home
@@ -371,7 +370,7 @@ void ModeGuidedNoGPS::yaw_run()
     float error = get_yaw_error();
     float rate = get_target_yaw_rate(error);
 
-    if (abs(error) < 5.0f) {
+    if (fabsf(error) < 5.0f) {
         copter.attitude_control->get_rate_yaw_pid().reset_filter();
         copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0, 0, 0);
         _state = State::ALT;
@@ -435,7 +434,7 @@ void ModeGuidedNoGPS::fly_run()
     copter.attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(
         bf_angles.x,
         bf_angles.y,
-        yaw_error > 0.5f ? get_target_yaw_rate(yaw_error) : 0
+        fabsf(yaw_error) > 0.5f ? get_target_yaw_rate(yaw_error) : 0
     );
 }
 

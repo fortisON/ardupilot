@@ -1299,7 +1299,6 @@ private:
 
     State _state;
 
-    float fly_angle     = 0.0f;
     float fly_alt_min   = 50.0f;
     float home_yaw      = 0.0f;
 
