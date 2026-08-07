@@ -1,0 +1,2 @@
+# MatekH743 with embedded rover defaults (see defaults.parm)
+include ../MatekH743/hwdef.dat

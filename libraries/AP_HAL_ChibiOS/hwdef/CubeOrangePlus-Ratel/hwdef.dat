@@ -1,0 +1,2 @@
+# CubeOrangePlus with embedded Ratel rover defaults (see defaults.parm)
+include ../CubeOrangePlus/hwdef.dat
