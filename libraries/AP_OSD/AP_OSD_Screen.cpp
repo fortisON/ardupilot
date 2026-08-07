@@ -38,6 +38,7 @@
 #include <AP_GPS/AP_GPS.h>
 #include <AP_RTC/AP_RTC.h>
 #include <AP_MSP/msp.h>
+#include <AP_Mount/AP_Mount.h>
 #include <AP_OLC/AP_OLC.h>
 #include <AP_VideoTX/AP_VideoTX.h>
 #include <AP_Terrain/AP_Terrain.h>
@@ -1205,6 +1206,38 @@ const AP_Param::GroupInfo AP_OSD_Screen::var_info2[] = {
     // @Description: Vertical position on screen
     // @Range: 0 21
     AP_SUBGROUPINFO(rtl_alt, "RTLALT", 11, AP_OSD_Screen, AP_OSD_Setting),
+
+    // @Param: ANT_P_EN
+    // @DisplayName: ANT_P_EN
+    // @Description: Displays antenna pitch position
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: ANT_P_X
+    // @DisplayName: ANT_P_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: ANT_P_Y
+    // @DisplayName: ANT_P_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(ant_pitch, "ANT_P", 12, AP_OSD_Screen, AP_OSD_Setting),
+
+    // @Param: ANT_Y_EN
+    // @DisplayName: ANT_Y_EN
+    // @Description: Displays antenna yaw position
+    // @Values: 0:Disabled,1:Enabled
+
+    // @Param: ANT_Y_X
+    // @DisplayName: ANT_Y_X
+    // @Description: Horizontal position on screen
+    // @Range: 0 59
+
+    // @Param: ANT_Y_Y
+    // @DisplayName: ANT_Y_Y
+    // @Description: Vertical position on screen
+    // @Range: 0 21
+    AP_SUBGROUPINFO(ant_yaw, "ANT_Y", 13, AP_OSD_Screen, AP_OSD_Setting),
 
     AP_GROUPEND
 };
@@ -2600,6 +2633,35 @@ void AP_OSD_Screen::draw_rtl_alt(uint8_t x, uint8_t y)
     backend->write(x, y, false, "RTLALT:%3d%c", (int)alt, SYMBOL(SYM_M));
 }
 
+void AP_OSD_Screen::draw_ant_pitch(uint8_t x, uint8_t y)
+{
+#if HAL_MOUNT_ENABLED
+    float roll = 0, pitch = 0, yaw = 0;
+    AP_Mount *mount = AP::mount();
+
+    if (mount != nullptr && mount->get_attitude_euler(1, roll, pitch, yaw)) {
+        const int body_pitch = degrees(AP::ahrs().get_pitch_rad());
+        backend->write(x, y, false, "ANT_P: %hd", (int16_t)(pitch + body_pitch));
+        return;
+    }
+#endif
+    backend->write(x, y, false, "ANT_P: %s", "N/A");
+}
+
+void AP_OSD_Screen::draw_ant_yaw(uint8_t x, uint8_t y)
+{
+#if HAL_MOUNT_ENABLED
+    float roll = 0, pitch = 0, yaw = 0;
+    AP_Mount *mount = AP::mount();
+
+    if (mount != nullptr && mount->get_attitude_euler(1, roll, pitch, yaw)) {
+        backend->write(x, y, false, "ANT_Y: %hd", (int16_t)yaw);
+        return;
+    }
+#endif
+    backend->write(x, y, false, "ANT_Y: %s", "N/A");
+}
+
 #define DRAW_SETTING(n) if (n.enabled) draw_ ## n(n.xpos, n.ypos)
 
 #if HAL_WITH_OSD_BITMAP || HAL_WITH_MSP_DISPLAYPORT
@@ -2702,6 +2764,8 @@ void AP_OSD_Screen::draw(void)
 
     DRAW_SETTING(home_yaw);
     DRAW_SETTING(rtl_alt);
+    DRAW_SETTING(ant_pitch);
+    DRAW_SETTING(ant_yaw);
 }
 #endif
 #endif // OSD_ENABLED

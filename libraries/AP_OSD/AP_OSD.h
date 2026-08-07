@@ -234,6 +234,9 @@ private:
     AP_OSD_Setting rngf;
     AP_OSD_Setting home_yaw{false, 14, 11};
     AP_OSD_Setting rtl_alt{false, 14, 11};
+    // Antenna servo position indicators (fork-custom)
+    AP_OSD_Setting ant_pitch{false, 10, 10};
+    AP_OSD_Setting ant_yaw{false, 10, 11};
 #if HAL_PLUSCODE_ENABLE
     AP_OSD_Setting pluscode;
 #endif
@@ -343,6 +346,8 @@ private:
 
     void draw_home_yaw(uint8_t x, uint8_t y);
     void draw_rtl_alt(uint8_t x, uint8_t y);
+    void draw_ant_pitch(uint8_t x, uint8_t y);
+    void draw_ant_yaw(uint8_t x, uint8_t y);
 
 #if AP_OSD_EXTENDED_LNK_STATS
     // Extended link stats data panels
