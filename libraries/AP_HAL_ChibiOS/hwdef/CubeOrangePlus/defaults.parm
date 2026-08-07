@@ -9,3 +9,94 @@ BATT2_VOLT_MULT 12.02
 ADSB_TYPE 1
 SERIAL5_BAUD 57
 SERIAL5_PROTOCOL 1
+
+# --- Rover Ratel defaults (only values differing from firmware defaults) ---
+# Excluded on purpose: device IDs, compass/gyro calibration, STAT_* counters
+
+# Arming: all checks disabled, arm/disarm on RC channel 6, no rudder arming,
+# no safety button
+ARMING_CHECK 0
+ARMING_RUDDER 0
+RC6_OPTION 153
+BRD_SAFETY_DEFLT 0
+
+# Autoreboot warning signal on servo output 2
+REBOOT_SERVO_OUT 2
+
+# Board / sensors
+AHRS_ORIENTATION 24
+COMPASS_ORIENT 6
+COMPASS_DISBLMSK 32
+INS_GYRO_RATE 1
+
+# GPS: uBlox on first port
+GPS1_TYPE 2
+
+# Battery: DroneCAN monitor
+BATT_MONITOR 8
+BATT_CAPACITY 230000
+BATT_LOW_VOLT 56
+BATT_CRT_VOLT 52
+BATT_OPTIONS 1
+
+# CAN bus 1 enabled (DroneCAN)
+CAN_P1_DRIVER 1
+
+# Failsafe: GCS failsafe enabled
+FS_GCS_ENABLE 1
+
+# Motors
+MOT_SLEWRATE 60
+
+# OSD: MSP DisplayPort
+OSD_TYPE 5
+
+# RC input: CRSF only, multiple receiver support, RSSI from RC protocol
+RC_OPTIONS 1056
+RC_PROTOCOLS 512
+RSSI_TYPE 3
+RC1_DZ 30
+RC3_DZ 30
+RC4_DZ 30
+
+# Serial ports
+# SERIAL0: MAVLink2 @115200 (default)
+# SERIAL1: MAVLink2 (default), baud raised to 115200
+SERIAL1_BAUD 115
+# SERIAL2: RC input @115200
+SERIAL2_PROTOCOL 23
+SERIAL2_BAUD 115
+# SERIAL3: GPS (default), baud 115200
+SERIAL3_BAUD 115
+# SERIAL4: GPS (default), baud 38400
+SERIAL4_BAUD 38
+# SERIAL5: MAVLink1 @57600 (cube ADSB default, see above)
+# SERIAL6 (second USB interface): SLCAN @115200
+SERIAL6_PROTOCOL 22
+SERIAL6_BAUD 115
+
+# Servo outputs: skid steering + RC12 passthrough on 4/6
+SERVO1_FUNCTION 73
+SERVO1_MIN 988
+SERVO1_MAX 2200
+SERVO3_FUNCTION 74
+SERVO3_MIN 988
+SERVO3_MAX 2200
+SERVO4_FUNCTION 62
+SERVO6_FUNCTION 62
+
+# Telemetry stream rates (SERIAL0/USB and SERIAL1)
+SR0_EXT_STAT 2
+SR0_EXTRA1 4
+SR0_EXTRA2 4
+SR0_EXTRA3 2
+SR0_POSITION 2
+SR0_RAW_SENS 2
+SR0_RC_CHAN 2
+SR1_EXT_STAT 2
+SR1_EXTRA1 4
+SR1_EXTRA2 4
+SR1_EXTRA3 2
+SR1_POSITION 2
+SR1_RAW_SENS 2
+SR1_RC_CHAN 2
