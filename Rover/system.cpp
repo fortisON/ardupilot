@@ -273,6 +273,21 @@ bool Rover::set_mode(Mode &new_mode, ModeReason reason)
 
     control_mode = &new_mode;
 
+    if (g.handbrake_enabled == 1 && g.handbrake_servo_out > 0) {
+        if (
+            control_mode->mode_number() == Mode::Number::HOLD
+            && g.handbrake_trigger_angle > 0
+            && fabsf(ahrs.get_pitch_rad()) >= radians(g.handbrake_trigger_angle)
+        ) {
+            SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 2000);
+        } else if (arming.is_armed()) {
+            // if we are armed and not in hold mode then release the handbrake
+            // this is done to allow the vehicle to move freely in manual mode
+            // and to allow the vehicle to drive in auto mode
+            SRV_Channels::set_output_pwm_chan(g.handbrake_servo_out - 1, 900);
+        }
+    }
+
 #if AP_FENCE_ENABLED
     // pilot requested flight mode change during a fence breach indicates pilot is attempting to manually recover
     // this flight mode change could be automatic (i.e. fence, battery, GPS or GCS failsafe)

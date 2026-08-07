@@ -148,6 +148,59 @@ const AP_Param::Info Rover::var_info[] = {
     // @User: Advanced
     GSCALAR(fs_ekf_thresh, "FS_EKF_THRESH", 0.8f),
 
+    // @Param: REBOOT_ENABLED
+    // @DisplayName: Reboot enabled
+    // @Description: Enable automatic reboot of the autopilot. When enabled the autopilot will be automatically rebooted after REBOOT_TIME minutes.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(reboot_enabled, "REBOOT_ENABLED", 1),
+
+    // @Param: REBOOT_SERVO_OUT
+    // @DisplayName: Reboot warning servo output
+    // @Description: Servo output channel to use for rebooting autopilot. If set to 0 then no servo output is used for rebooting autopilot.
+    // @Range: 1 16
+    // @User: Advanced
+    GSCALAR(reboot_relay_servo_out, "REBOOT_SERVO_OUT", 5),
+
+    // @Param: REBOOT_REASON
+    // @DisplayName: Reason for reboot
+    // @Description: Reason for rebooting autopilot
+    // @Values: 0:Timeout,1:FailsafeRC
+    // @User: Advanced
+    GSCALAR(reboot_reason, "REBOOT_REASON", 0),
+
+    // @Param: REBOOT_TIME
+    // @DisplayName: Time to reboot autopilot
+    // @Description: Time in minutes after which autopilot will be automatically rebooted
+    // @Units: min
+    // @Range: 1 60
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(reboot_time, "REBOOT_TIME", 60),
+
+    // @Param: HBRK_ENABLED
+    // @DisplayName: Handbrake enabled
+    // @Description: Enable handbrake control. When enabled the handbrake will be engaged when the pitch angle exceeds the HBRK_TRGR_ANGLE value and when disarmed.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(handbrake_enabled, "HBRK_ENABLED", 1),
+
+    // @Param: HBRK_SERVO_OUT
+    // @DisplayName: Handbrake servo output
+    // @Description: Servo output channel to use for handbrake control. If set to 0 then no servo output is used for handbrake control.
+    // @Range: 0 16
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(handbrake_servo_out, "HBRK_SERVO_OUT", 7),
+
+    // @Param: HBRK_TRGR_ANGLE
+    // @DisplayName: Handbrake trigger angle
+    // @Description: Angle in degrees at which the handbrake is triggered. The handbrake is engaged when the pitch angle exceeds this value.
+    // @Range: 0 45.0
+    // @Increment: 0.1
+    // @User: Advanced
+    GSCALAR(handbrake_trigger_angle, "HBRK_TRGR_ANGLE", 2.5f),
+
     // @Param: MODE_CH
     // @DisplayName: Mode channel
     // @Description: RC Channel to use for driving mode control

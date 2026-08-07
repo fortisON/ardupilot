@@ -373,6 +373,7 @@ public:
         MOUNT_POI_LOCK =     186,  // Lock mount target to current ROI seen and switch mount to GPS Targeting mode
 #endif  // AP_MOUNT_POI_LOCK_ENABLED
         FORCE_LAND =         187,  // fork-custom: force land mode (was 183 before the Copter-4.7.0 merge)
+        REBOOT =             188,  // fork-custom: reboot the board (was 184 before the Copter-4.7.0 merge)
         // inputs from 200 will eventually used to replace RCMAP
         ROLL =               201, // roll input
         PITCH =              202, // pitch input

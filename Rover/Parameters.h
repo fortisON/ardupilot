@@ -69,6 +69,17 @@ public:
         k_param_serial1_baud,   // deprecated, can be deleted
         k_param_serial2_baud,   // deprecated, can be deleted
 
+        // 45: Autoreboot (fork-custom, keep indices stable across firmware updates)
+        k_param_reboot_enabled = 45,
+        k_param_reboot_relay_servo_out,
+        k_param_reboot_reason,
+        k_param_reboot_time,
+
+        // 50: Handbrake (fork-custom, keep indices stable across firmware updates)
+        k_param_handbrake_enabled = 50,
+        k_param_handbrake_servo_out,
+        k_param_handbrake_trigger_angle,
+
         // 97: RSSI
         k_param_rssi = 97,
         k_param_rpm_sensor_old, // unused - moved to vehicle
@@ -240,6 +251,17 @@ public:
     AP_Int32    log_bitmask;
     AP_Int8     reset_switch_chan;
     AP_Int8     initial_mode;
+
+    // Autoreboot (fork-custom)
+    AP_Int8     reboot_enabled;
+    AP_Int8     reboot_relay_servo_out;
+    AP_Int8     reboot_reason;
+    AP_Int16    reboot_time;
+
+    // Handbrake (fork-custom)
+    AP_Int8     handbrake_enabled;
+    AP_Int8     handbrake_servo_out;
+    AP_Float    handbrake_trigger_angle;
 
     // navigation parameters
     //

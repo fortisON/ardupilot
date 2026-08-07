@@ -86,6 +86,21 @@ void Rover::radio_failsafe_check(uint16_t pwm)
     if (AP_HAL::millis() - failsafe.last_valid_rc_ms > rc().get_fs_timeout_ms()) {
         // we haven't had a valid RC frame for RC_FS_TIMEOUT seconds
         failed = true;
+
+        if (g.reboot_enabled == 1 && g.reboot_relay_servo_out > 0 && g.reboot_reason == 1) {
+            int time_elapsed = AP_HAL::millis() - failsafe.last_valid_rc_ms;
+            int reboot_time = g.reboot_time * 60000;
+
+            if (reboot_time > 0 && time_elapsed >= reboot_time) {
+                AP::vehicle()->reboot(false);
+            }
+
+            if (reboot_time >= 2 && (time_elapsed >= reboot_time - 60000 && time_elapsed <= reboot_time - 55000)) {
+                SRV_Channels::set_output_pwm_chan(g.reboot_relay_servo_out - 1, 1900);
+            } else {
+                SRV_Channels::set_output_pwm_chan(g.reboot_relay_servo_out - 1, 1100);
+            }
+        }
     }
     AP_Notify::flags.failsafe_radio = failed;
     failsafe_trigger(FAILSAFE_EVENT_THROTTLE, "Radio", failed);

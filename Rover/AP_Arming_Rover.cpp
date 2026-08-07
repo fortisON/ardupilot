@@ -151,6 +151,11 @@ bool AP_Arming_Rover::arm(AP_Arming::Method method, const bool do_arming_checks)
     AP::logger().set_vehicle_armed(true);
 #endif
 
+    // Release the handbrake
+    if (rover.g.handbrake_enabled == 1 && rover.g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(rover.g.handbrake_servo_out - 1, 900);
+    }
+
     update_soft_armed();
 
     send_arm_disarm_statustext("Throttle armed");
@@ -183,6 +188,11 @@ bool AP_Arming_Rover::disarm(const AP_Arming::Method method, bool do_disarm_chec
     // Tell logger it can stop logging
     AP::logger().set_vehicle_armed(false);
 #endif
+
+    // Tighten the handbrake
+    if (rover.g.handbrake_enabled == 1 && rover.g.handbrake_servo_out > 0) {
+        SRV_Channels::set_output_pwm_chan(rover.g.handbrake_servo_out - 1, 2000);
+    }
 
     update_soft_armed();
 
