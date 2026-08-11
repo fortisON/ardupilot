@@ -1281,6 +1281,13 @@ public:
         INCREMENTAL = 1,    // stick deflection increments/decrements the value over time
     };
 
+    // heading behaviour while returning (GNGP_HDG_MODE)
+    enum class HeadingMode : uint8_t {
+        HOLD_HEADING = 0,   // keep entry heading, crab home without turning
+        NOSE_TO_HOME = 1,   // turn nose to the home azimuth (legacy behaviour)
+        TAIL_TO_HOME = 2,   // turn tail to home (rear-facing antenna towards home)
+    };
+
     bool requires_position() const override { return false; }
     bool has_manual_throttle() const override { return false; }
     bool is_autopilot() const override { return true; }
@@ -1326,6 +1333,9 @@ private:
     // max lean angle towards home in FLY state, degrees; 0 = use ANGLE_MAX
     AP_Float fly_angle;
 
+    // heading behaviour while returning (see HeadingMode)
+    AP_Int8 hdg_mode;
+
     // RC input mapping configuration (see RCInputType)
     AP_Int8  rc_input_type;     // 0 = absolute, 1 = incremental
     AP_Float rc_deadzone;       // normalised neutral deadzone [0..1] for incremental mode
@@ -1344,7 +1354,8 @@ private:
     State _state;
 
     float fly_alt_min   = 50.0f;
-    float home_yaw      = 0.0f;
+    float home_yaw      = 0.0f;     // ground track to home, degrees
+    float target_heading = 0.0f;    // desired vehicle heading, degrees (per HeadingMode)
 
 #ifdef AP_OPTICALFLOW_ENABLED
     AP_Float flow_max;

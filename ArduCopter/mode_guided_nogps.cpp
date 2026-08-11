@@ -157,6 +157,13 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_ANGLE", 17, ModeGuidedNoGPS, fly_angle, 0),
 
+    // @Param: _HDG_MODE
+    // @DisplayName: GuidedNoGPS heading mode
+    // @Description: Heading behaviour while returning. 0: keep the heading the vehicle had when the mode engaged and crab home without turning. 1: turn nose towards the home azimuth (legacy behaviour). 2: turn tail towards home (nose away), e.g. for a rear-facing directional antenna.
+    // @Values: 0:HoldHeading,1:NoseToHome,2:TailToHome
+    // @User: Standard
+    AP_GROUPINFO("_HDG_MODE", 18, ModeGuidedNoGPS, hdg_mode, (int8_t)HeadingMode::NOSE_TO_HOME),
+
     AP_GROUPEND
 };
 
@@ -170,10 +177,10 @@ float ModeGuidedNoGPS::normalize_angle_deg(float angle)
     return fmod(fmod(angle, 360.0f) + 360.0f, 360.0f);
 }
 
-// signed shortest-path yaw error to home_yaw in degrees, [-180..180)
+// signed shortest-path yaw error to the desired heading in degrees, [-180..180)
 float ModeGuidedNoGPS::get_yaw_error()
 {
-    return wrap_180(home_yaw - degrees(copter.ahrs.get_yaw()));
+    return wrap_180(target_heading - degrees(copter.ahrs.get_yaw()));
 }
 
 float ModeGuidedNoGPS::get_target_yaw_rate(float yaw_error)
@@ -337,11 +344,27 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     pos_control->D_set_max_speed_accel_m(get_pilot_speed_dn_ms(), get_pilot_speed_up_ms(), get_pilot_accel_D_mss());
     pos_control->D_set_correction_speed_accel_m(get_pilot_speed_dn_ms(), get_pilot_speed_up_ms(), get_pilot_accel_D_mss());
 
-    _state = State::YAW;
-
-    // Minimum height and yaw
+    // Minimum height and ground track to home
     fly_alt_min = copter.mode_rtl.get_altitude_m(); // minimum height above the home
     home_yaw = normalize_angle_deg(dr_home_yaw < 1 ? copter.azimuth_to_home : static_cast<float>(dr_home_yaw));
+
+    // desired heading while returning; the ground track stays home_yaw in all
+    // modes - the lean vector and the flow lateral projection are heading-independent
+    switch ((HeadingMode)hdg_mode.get()) {
+    case HeadingMode::HOLD_HEADING:
+        // keep the heading we entered the mode with and crab home without turning
+        target_heading = normalize_angle_deg(degrees(copter.ahrs.get_yaw()));
+        break;
+    case HeadingMode::TAIL_TO_HOME:
+        target_heading = normalize_angle_deg(home_yaw + 180.0f);
+        break;
+    case HeadingMode::NOSE_TO_HOME:
+    default:
+        target_heading = home_yaw;
+        break;
+    }
+
+    _state = State::YAW;
 
 #ifdef AP_OPTICALFLOW_ENABLED
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
@@ -462,8 +485,14 @@ void ModeGuidedNoGPS::fly_run()
     optflow_correction(bf_angles, true);
 #endif // AP_OPTICALFLOW_ENABLED
 
-    bf_angles.x = constrain_float(bf_angles.x, -angle_max_rad, angle_max_rad);
-    bf_angles.y = constrain_float(bf_angles.y, -angle_max_rad, angle_max_rad);
+    // renormalise the base+correction sum to the full lean budget: the flow
+    // correction steers the lean DIRECTION while the magnitude stays fixed.
+    // Per-axis clamping of the sum rotated the command arbitrarily and starved
+    // the lateral correction whenever the base lean already sat at the limit
+    // (always the case while crabbing in HOLD_HEADING mode).
+    if (!bf_angles.is_zero()) {
+        bf_angles = bf_angles.normalized() * angle_max_rad;
+    }
 
     // Maybe apply yaw correction
     float yaw_error = get_yaw_error();
@@ -580,14 +609,18 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles, bool lateral_o
         // convert to body frame
         flow_angles += copter.ahrs.earth_to_body2D(ef_output);
 
+        // anti-windup: freeze the integrator only when the CORRECTION saturates
+        // its own authority clamp. Judging by the combined base+correction vector
+        // stalled the I term whenever the base lean already sat at ANGLE_MAX
+        // (always true while crabbing), leaving cross-track drift uncorrected.
+        const float corr_limit = angle_max_rad * flow_impact;
+        limited = fabsf(flow_angles.x) > corr_limit || fabsf(flow_angles.y) > corr_limit;
+
         // constrain to angle limit
-        flow_angles.x = constrain_float(flow_angles.x, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
-        flow_angles.y = constrain_float(flow_angles.y, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
+        flow_angles.x = constrain_float(flow_angles.x, -corr_limit, corr_limit);
+        flow_angles.y = constrain_float(flow_angles.y, -corr_limit, corr_limit);
 
         target_angles += flow_angles;
-
-        // set limited flag to prevent integrator windup
-        limited = fabsf(target_angles.x) > angle_max_rad || fabsf(target_angles.y) > angle_max_rad;
     }
 }
 #endif // AP_OPTICALFLOW_ENABLED
