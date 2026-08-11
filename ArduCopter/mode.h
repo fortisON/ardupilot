@@ -1306,7 +1306,9 @@ private:
     bool adjust_altitude();
 
 #ifdef AP_OPTICALFLOW_ENABLED
-    void optflow_correction(Vector2f &target_angles);
+    // lateral_only: apply only the correction component perpendicular to the
+    // commanded lean direction (used in FLY so flow does not brake the flight home)
+    void optflow_correction(Vector2f &target_angles, bool lateral_only);
 #endif
 
     void yaw_run();
@@ -1320,6 +1322,9 @@ private:
 
     // return azimuth to home, degrees; < 1 means automatic (bearing captured while GPS was healthy)
     AP_Int32 dr_home_yaw;
+
+    // max lean angle towards home in FLY state, degrees; 0 = use ANGLE_MAX
+    AP_Float fly_angle;
 
     // RC input mapping configuration (see RCInputType)
     AP_Int8  rc_input_type;     // 0 = absolute, 1 = incremental

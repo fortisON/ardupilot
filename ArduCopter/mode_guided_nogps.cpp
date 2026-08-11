@@ -149,6 +149,14 @@ const AP_Param::GroupInfo ModeGuidedNoGPS::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_HOME_YAW", 16, ModeGuidedNoGPS, dr_home_yaw, DR_HOME_YAW_DEFAULT),
 
+    // @Param: _ANGLE
+    // @DisplayName: GuidedNoGPS FLY state lean angle
+    // @Description: Maximum lean angle towards home in the FLY state. Zero means use ANGLE_MAX. Regardless of this value the lean angle is also reduced whenever the altitude controller runs short of thrust headroom, so altitude is held in preference to speed.
+    // @Range: 0 45
+    // @Units: deg
+    // @User: Standard
+    AP_GROUPINFO("_ANGLE", 17, ModeGuidedNoGPS, fly_angle, 0),
+
     AP_GROUPEND
 };
 
@@ -336,7 +344,10 @@ bool ModeGuidedNoGPS::init(bool ignore_checks)
     flow_filter.set_cutoff_frequency(copter.scheduler.get_loop_rate_hz(), flow_filter_hz);
 
     flow_pi_xy.reset_I();
-    flow_pi_xy.set_dt(1.0 / copter.scheduler.get_loop_rate_hz() * flow_filter_samples);
+    // the PI controller runs every loop iteration (optflow_correction), even
+    // though the averaged flow input only refreshes every flow_filter_samples
+    // loops, so dt must be a single loop period
+    flow_pi_xy.set_dt(1.0f / copter.scheduler.get_loop_rate_hz());
 
     flow_samples_count = 0;
     flow_error.zero();
@@ -390,11 +401,14 @@ void ModeGuidedNoGPS::alt_run()
 {
     bool altitude_reached = adjust_altitude();
 
-    const float angle_max_rad = copter.attitude_control->lean_angle_max_rad();
+    // respect the altitude controller's thrust-headroom limit so flow
+    // corrections cannot tilt away the thrust needed to climb
+    const float angle_max_rad = MIN(copter.attitude_control->lean_angle_max_rad(),
+                                    copter.attitude_control->get_althold_lean_angle_max_rad());
     Vector2f angles_rad;
 
 #if AP_OPTICALFLOW_ENABLED
-    optflow_correction(angles_rad);
+    optflow_correction(angles_rad, false);
 #endif // AP_OPTICALFLOW_ENABLED
 
     angles_rad.x = constrain_float(angles_rad.x, -angle_max_rad, angle_max_rad);
@@ -405,10 +419,17 @@ void ModeGuidedNoGPS::alt_run()
     if(altitude_reached) {
         _state = State::FLY;
 
+#if AP_OPTICALFLOW_ENABLED
         // Reset optical flow error
         flow_samples_count = 0;
         flow_error.zero();
         flow_error_buff.zero();
+
+        // drop the position-hold integrator: in FLY the PI input is projected to
+        // the cross-track axis, so an along-track I component accumulated here
+        // would freeze in place and permanently brake the flight home
+        flow_pi_xy.reset_I();
+#endif
     }
 }
 
@@ -424,11 +445,18 @@ void ModeGuidedNoGPS::fly_run()
     Vector2f home_vector = Vector2f(sinf(body_to_home_azimuth), -cosf(body_to_home_azimuth));
     Vector2f bf_angles = Vector2f(home_vector.x, home_vector.y);
 
-    const float angle_max_rad = copter.attitude_control->lean_angle_max_rad();
+    // lean limit: ANGLE_MAX, reduced by the altitude controller's thrust-headroom
+    // limit (hold altitude in preference to speed home on low-margin airframes)
+    // and by the optional GNGP_ANGLE cruise cap
+    float angle_max_rad = MIN(copter.attitude_control->lean_angle_max_rad(),
+                              copter.attitude_control->get_althold_lean_angle_max_rad());
+    if (is_positive(fly_angle.get())) {
+        angle_max_rad = MIN(angle_max_rad, radians(fly_angle.get()));
+    }
     bf_angles = bf_angles.normalized() * angle_max_rad;
 
 #if AP_OPTICALFLOW_ENABLED
-    optflow_correction(bf_angles);
+    optflow_correction(bf_angles, true);
 #endif // AP_OPTICALFLOW_ENABLED
 
     bf_angles.x = constrain_float(bf_angles.x, -angle_max_rad, angle_max_rad);
@@ -446,7 +474,7 @@ void ModeGuidedNoGPS::fly_run()
 }
 
 #if AP_OPTICALFLOW_ENABLED
-void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
+void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles, bool lateral_only)
 {
     if (copter.optflow.healthy()) {
         const float filter_constant = 0.95;
@@ -490,6 +518,16 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         // rotate controller input to earth frame
         Vector2f input_ef = copter.ahrs.body_to_earth2D(sensor_flow);
 
+        if (lateral_only) {
+            // strip the along-track (towards home_yaw) component before the PI so
+            // the integrator never accumulates the deliberate flight speed home
+            // and only damps cross-track drift. Flow vectors live in angle space
+            // (rotated 90 degrees from motion), hence (sin, -cos) for the track.
+            const float track_rad = radians(home_yaw);
+            const Vector2f track_dir{sinf(track_rad), -cosf(track_rad)};
+            input_ef -= track_dir * (input_ef * track_dir);
+        }
+
         // run PI controller
         flow_pi_xy.set_input(input_ef);
 
@@ -521,15 +559,14 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles)
         // convert to body frame
         flow_angles += copter.ahrs.earth_to_body2D(ef_output);
 
-        // set limited flag to prevent integrator windup
-        limited = fabsf(target_angles.x) > angle_max_rad || fabsf(target_angles.y) > angle_max_rad;
-
         // constrain to angle limit
         flow_angles.x = constrain_float(flow_angles.x, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
         flow_angles.y = constrain_float(flow_angles.y, -angle_max_rad * flow_impact, angle_max_rad * flow_impact);
 
-        target_angles.x += flow_angles.x + target_angles.x * flow_impact;
-        target_angles.y += flow_angles.y + target_angles.y * flow_impact;
+        target_angles += flow_angles;
+
+        // set limited flag to prevent integrator windup
+        limited = fabsf(target_angles.x) > angle_max_rad || fabsf(target_angles.y) > angle_max_rad;
     }
 }
 #endif // AP_OPTICALFLOW_ENABLED
