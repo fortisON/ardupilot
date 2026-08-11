@@ -301,25 +301,28 @@ bool ModeGuidedNoGPS::adjust_altitude()
     float curr_alt_below_home = 0.0f;
     copter.ahrs.get_relative_position_D_home(curr_alt_below_home);
 
-    // Calculate the target altitude above the vehicle
-    float target_alt_above_vehicle = fly_alt_min + curr_alt_below_home;
-
     copter.motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
-    float target_climb_rate_ms = 0;
+    // Command the climb against the position-controller TARGET, not the vehicle:
+    // if the vehicle lags behind (headwind, thrust limit, baro offset at speed) a
+    // vehicle-based check keeps integrating the target upwards, inflating the
+    // position error and with it the throttle. AltHold holds a fixed target and
+    // sits at hover throttle; once the target reaches fly_alt_min this does too.
+    const float target_above_home_m = pos_control->get_pos_target_U_m()
+                                      - pos_control->get_pos_estimate_U_m()
+                                      - curr_alt_below_home;
 
-    if (target_alt_above_vehicle > 0.5f) {
-        target_climb_rate_ms = constrain_float(climb_rate, -get_pilot_speed_dn_ms(), get_pilot_speed_up_ms());
+    // proportional approach to the return altitude, capped at GNGP_CLMB_RATE
+    float target_climb_rate_ms = constrain_float(fly_alt_min - target_above_home_m, 0.0f,
+                                                 constrain_float(climb_rate, 0.0f, get_pilot_speed_up_ms()));
+    if (target_climb_rate_ms > 0) {
         target_climb_rate_ms = get_avoidance_adjusted_climbrate_ms(target_climb_rate_ms);
     }
 
     pos_control->D_set_pos_target_from_climb_rate_ms(target_climb_rate_ms);
 
-    if (target_climb_rate_ms > 0) {
-        return false;
-    }
-
-    return true;
+    // reached once the vehicle itself is within 0.5 m of the return altitude
+    return (fly_alt_min + curr_alt_below_home) <= 0.5f;
 }
 
 // Initialize the guided_nogps controller
@@ -515,8 +518,26 @@ void ModeGuidedNoGPS::optflow_correction(Vector2f& target_angles, bool lateral_o
         // compensate for height, this converts to (approx) m/s
         sensor_flow *= constrain_float(height_m, height_min, height_max);
 
-        // rotate controller input to earth frame
-        Vector2f input_ef = copter.ahrs.body_to_earth2D(sensor_flow);
+        // flow axes are velocity rotated 90 deg: flow = (-v_by, +v_bx)/range
+        const Vector2f vel_bf(sensor_flow.y, -sensor_flow.x);
+
+        // Reconstruct horizontal earth-frame velocity with the full attitude,
+        // assuming near-level flight (vD ~ 0). A yaw-only rotation leaks the
+        // along-track speed into the lateral axis at cruise pitch
+        // (v_by = v_lat*cos(roll) + v_along*sin(pitch)*sin(roll)), so the PI
+        // trimmed to a constant lateral drift instead of zero.
+        const Matrix3f &rot = copter.ahrs.get_rotation_body_to_ned();
+        const float det = rot.a.x * rot.b.y - rot.b.x * rot.a.y;
+        Vector2f vel_ef;
+        if (fabsf(det) > 0.1f) {
+            vel_ef.x = ( rot.b.y * vel_bf.x - rot.b.x * vel_bf.y) / det;
+            vel_ef.y = (-rot.a.y * vel_bf.x + rot.a.x * vel_bf.y) / det;
+        } else {
+            vel_ef = copter.ahrs.body_to_earth2D(vel_bf);
+        }
+
+        // back to the flow/angle-space convention used by the PI pipeline
+        Vector2f input_ef(-vel_ef.y, vel_ef.x);
 
         if (lateral_only) {
             // strip the along-track (towards home_yaw) component before the PI so
